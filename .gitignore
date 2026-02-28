@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+.venv/
+backend/.venv/
+backend/.pytest_cache/
+backend/game_state.db
+*.db
+node_modules/
+web-client/dist/
+.DS_Store
