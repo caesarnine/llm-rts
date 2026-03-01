@@ -14,13 +14,13 @@ function EventRow({ event }: { event: GameEvent }) {
   const color = EVENT_COLOR[event.event_type] ?? '#9ca3af'
   return (
     <div style={{
-      fontSize: 11, lineHeight: 1.4,
+      fontSize: 10, lineHeight: 1.35,
       borderLeft: `2px solid ${color}`,
-      paddingLeft: 6,
-      color: '#d1d5db',
-      marginBottom: 2,
+      paddingLeft: 5,
+      color: '#c4c4c4',
+      marginBottom: 1,
     }}>
-      <span style={{ color: '#6b7280', marginRight: 6 }}>t{event.tick}</span>
+      <span style={{ color: '#555', marginRight: 4 }}>t{event.tick}</span>
       {event.message}
     </div>
   )
@@ -33,22 +33,20 @@ export default function EventLog() {
   if (phase !== 'running' && phase !== 'finished') return null
   if (events.length === 0) return null
 
-  const recent = events.slice(-18).reverse()
+  const recent = events.slice(-14).reverse()
 
   return (
     <div style={{
-      position: 'absolute', bottom: 60, left: 12,
-      width: 300,
-      background: 'rgba(10,10,20,0.8)',
-      border: '1px solid #333',
+      width: 260,
+      background: 'rgba(10,10,20,0.82)',
+      border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 6,
-      padding: '8px 10px',
-      backdropFilter: 'blur(4px)',
-      pointerEvents: 'none',
-      maxHeight: 260,
+      padding: '6px 8px',
+      backdropFilter: 'blur(6px)',
+      maxHeight: 180,
       overflow: 'hidden',
     }}>
-      <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 'bold', marginBottom: 6 }}>
+      <div style={{ fontSize: 9, color: '#555', fontWeight: 'bold', marginBottom: 4, letterSpacing: 1 }}>
         BATTLE LOG
       </div>
       {recent.map((e, i) => (

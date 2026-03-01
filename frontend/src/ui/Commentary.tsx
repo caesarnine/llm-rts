@@ -9,29 +9,25 @@ export default function Commentary() {
     <div
       key={commentary}
       style={{
-        position: 'absolute',
-        bottom: 80,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        maxWidth: 560,
+        maxWidth: 480,
         background: 'rgba(0,0,0,0.72)',
-        border: '1px solid rgba(251,191,36,0.4)',
+        border: '1px solid rgba(251,191,36,0.3)',
         borderRadius: 8,
-        padding: '8px 18px',
+        padding: '6px 16px',
         fontStyle: 'italic',
         color: '#fbbf24',
-        fontSize: 14,
+        fontSize: 12,
         textAlign: 'center',
         animation: 'commentary-fade 0.5s ease-in',
-        pointerEvents: 'none',
         letterSpacing: '0.01em',
+        lineHeight: 1.4,
       }}
     >
       {commentary}
       <style>{`
         @keyframes commentary-fade {
-          from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

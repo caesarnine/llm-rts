@@ -27,19 +27,20 @@ function DayNightCycle({ tick, mapW, mapH }: { tick: number; mapW: number; mapH:
     const dayFactor = Math.cos(phase * Math.PI * 2) * 0.5 + 0.5 // 1 at noon, 0 at midnight
 
     if (ambientRef.current) {
-      const warmR = 0.35 + dayFactor * 0.25
-      const warmG = 0.30 + dayFactor * 0.25
-      const warmB = 0.25 + dayFactor * 0.15
-      ambientRef.current.color.setRGB(warmR, warmG, warmB)
-      ambientRef.current.intensity = 0.3 + dayFactor * 0.4
+      // Night: cool blue-ish tint. Day: warm white. Always bright enough to see.
+      const r = 0.45 + dayFactor * 0.15
+      const g = 0.42 + dayFactor * 0.18
+      const b = 0.50 + dayFactor * 0.05
+      ambientRef.current.color.setRGB(r, g, b)
+      ambientRef.current.intensity = 0.5 + dayFactor * 0.3
     }
 
     if (dirRef.current) {
-      dirRef.current.intensity = 0.4 + dayFactor * 1.0
+      dirRef.current.intensity = 0.6 + dayFactor * 0.8
       const angle = phase * Math.PI * 2
       dirRef.current.position.set(
         mapW * 0.5 + Math.cos(angle) * mapW * 0.6,
-        8 + dayFactor * 20,
+        12 + dayFactor * 16,
         mapH * 0.5 + Math.sin(angle) * mapH * 0.4,
       )
     }

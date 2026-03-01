@@ -4,11 +4,11 @@ import { useGameStore } from '../store/gameStore'
 const SPEEDS = [0, 0.5, 1, 2, 4]
 
 const card: CSSProperties = {
-  background: 'rgba(10,10,20,0.85)',
-  border: '1px solid #333',
+  background: 'rgba(10,10,20,0.82)',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 6,
   padding: '8px 12px',
-  backdropFilter: 'blur(4px)',
+  backdropFilter: 'blur(6px)',
 }
 
 function TeamResources({ team }: { team: 'red' | 'blue' }) {
@@ -19,31 +19,96 @@ function TeamResources({ team }: { team: 'red' | 'blue' }) {
 
   if (!resources) return null
   return (
-    <div style={{ ...card, pointerEvents: 'none' }}>
-      <div style={{ color, fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
-        {team.toUpperCase()} TEAM
-        <span style={{ fontWeight: 'normal', color: '#aaa', marginLeft: 6, fontSize: 10 }}>
-          {unitCount}/{popCap} pop
+    <div style={card}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+        <span style={{ color, fontWeight: 'bold', fontSize: 11, textTransform: 'uppercase' }}>
+          {team}
+        </span>
+        <span style={{ color: '#666', fontSize: 10 }}>
+          {unitCount}/{popCap}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
-        <span>🪙 {resources.gold}</span>
-        <span>🪵 {resources.wood}</span>
-        <span>🪨 {resources.stone}</span>
+      <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#ccc' }}>
+        <span style={{ color: '#fbbf24' }}>{resources.gold}g</span>
+        <span style={{ color: '#a3e635' }}>{resources.wood}w</span>
+        <span style={{ color: '#94a3b8' }}>{resources.stone}s</span>
       </div>
     </div>
   )
 }
 
-export default function HUD() {
+function ResourcesSection() {
+  return (
+    <>
+      <TeamResources team="red" />
+      <TeamResources team="blue" />
+    </>
+  )
+}
+
+function TickSection() {
   const tick = useGameStore((s) => s.gameState?.tick ?? 0)
   const phase = useGameStore((s) => s.gameState?.phase)
   const thinking = useGameStore((s) => s.gameState?.llm_thinking ?? false)
-  const speed = useGameStore((s) => s.speed)
-  const setSpeed = useGameStore((s) => s.setSpeed)
+
+  return (
+    <div style={{ ...card, textAlign: 'center', minWidth: 110 }}>
+      <div style={{ fontSize: 10, color: '#666', letterSpacing: 1 }}>TICK</div>
+      <div style={{ fontSize: 20, fontWeight: 'bold', letterSpacing: 2, lineHeight: 1.2 }}>{tick}</div>
+      {thinking ? (
+        <div style={{
+          fontSize: 9, marginTop: 3, color: '#fbbf24',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        }}>
+          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span>
+          THINKING
+        </div>
+      ) : phase ? (
+        <div style={{
+          fontSize: 9, marginTop: 2, letterSpacing: 1,
+          color: phase === 'running' ? '#22c55e' : phase === 'finished' ? '#ef4444' : '#666',
+        }}>
+          {phase.toUpperCase()}
+        </div>
+      ) : null}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}
+
+function StatusSection() {
   const connected = useGameStore((s) => s.connected)
   const muted = useGameStore((s) => s.muted)
   const setMuted = useGameStore((s) => s.setMuted)
+
+  return (
+    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+      <button
+        onClick={() => setMuted(!muted)}
+        style={{
+          background: 'none', border: 'none', color: '#888',
+          cursor: 'pointer', fontSize: 13, padding: 0, fontFamily: 'inherit',
+        }}
+        title={muted ? 'Unmute' : 'Mute'}
+      >
+        {muted ? '🔇' : '🔊'}
+      </button>
+      <div style={{
+        width: 7, height: 7, borderRadius: '50%',
+        background: connected ? '#22c55e' : '#ef4444',
+      }} />
+      <span style={{ fontSize: 10, color: '#666' }}>
+        {connected ? 'LIVE' : 'OFF'}
+      </span>
+    </div>
+  )
+}
+
+function ControlsSection() {
+  const phase = useGameStore((s) => s.gameState?.phase)
+  const speed = useGameStore((s) => s.speed)
+  const setSpeed = useGameStore((s) => s.setSpeed)
+  const connected = useGameStore((s) => s.connected)
 
   const handleStart = async () => {
     await fetch('/api/game/start?use_llm=false', { method: 'POST' })
@@ -56,120 +121,65 @@ export default function HUD() {
   }
 
   return (
-    <>
-      {/* Top-left: resources */}
-      <div style={{
-        position: 'absolute', top: 12, left: 12,
-        display: 'flex', flexDirection: 'column', gap: 6,
-        pointerEvents: 'auto',
-      }}>
-        <TeamResources team="red" />
-        <TeamResources team="blue" />
-      </div>
+    <div style={{
+      display: 'flex', gap: 6, alignItems: 'center',
+      pointerEvents: 'auto',
+    }}>
+      {(!phase || phase === 'starting' || phase === 'finished') && connected && (
+        <>
+          <button onClick={handleStart} style={btnStyle('#374151')}>
+            Start (Random)
+          </button>
+          <button onClick={handleStartLLM} style={btnStyle('#1e40af')}>
+            Start (LLM)
+          </button>
+        </>
+      )}
 
-      {/* Top-center: tick + phase + thinking indicator */}
-      <div style={{
-        position: 'absolute', top: 12, left: '50%',
-        transform: 'translateX(-50%)',
-        ...card, textAlign: 'center', pointerEvents: 'none',
-        minWidth: 120,
-      }}>
-        <div style={{ fontSize: 11, color: '#aaa' }}>TICK</div>
-        <div style={{ fontSize: 20, fontWeight: 'bold', letterSpacing: 2 }}>{tick}</div>
-        {thinking ? (
-          <div style={{ fontSize: 10, marginTop: 4, color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-            <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span>
-            COMMANDERS THINKING
-          </div>
-        ) : phase ? (
-          <div style={{
-            fontSize: 10, marginTop: 2,
-            color: phase === 'running' ? '#22c55e' : phase === 'finished' ? '#ef4444' : '#888',
-          }}>
-            {phase.toUpperCase()}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Spin keyframe */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-      {/* Bottom-center: controls */}
-      <div style={{
-        position: 'absolute', bottom: 16, left: '50%',
-        transform: 'translateX(-50%)',
-        display: 'flex', gap: 8, alignItems: 'center',
-        pointerEvents: 'auto',
-      }}>
-        {/* Start buttons (before game) */}
-        {(!phase || phase === 'starting' || phase === 'finished') && connected && (
-          <>
-            <button onClick={handleStart} style={btnStyle('#374151')}>
-              Start (Random AI)
+      {phase === 'running' && (
+        <>
+          {SPEEDS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSpeed(s)}
+              style={btnStyle(speed === s ? '#4b5563' : '#1f2937')}
+            >
+              {s === 0 ? '⏸' : `${s}×`}
             </button>
-            <button onClick={handleStartLLM} style={btnStyle('#1e40af')}>
-              Start (Claude AI)
-            </button>
-          </>
-        )}
-
-        {/* Speed controls */}
-        {phase === 'running' && (
-          <>
-            <span style={{ fontSize: 11, color: '#888' }}>SPEED:</span>
-            {SPEEDS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSpeed(s)}
-                style={btnStyle(speed === s ? '#4b5563' : '#1f2937')}
-              >
-                {s === 0 ? '⏸' : `${s}×`}
-              </button>
-            ))}
-            <button onClick={handleRestart} style={btnStyle('#7f1d1d')}>
-              Restart
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Connection dot + mute */}
-      <div style={{
-        position: 'absolute', top: 12, right: 12,
-        display: 'flex', alignItems: 'center', gap: 8,
-        ...card, pointerEvents: 'auto',
-      }}>
-        <button
-          onClick={() => setMuted(!muted)}
-          style={{
-            background: 'none', border: 'none', color: '#aaa',
-            cursor: 'pointer', fontSize: 14, padding: 0, fontFamily: 'inherit',
-          }}
-          title={muted ? 'Unmute' : 'Mute'}
-        >
-          {muted ? '🔇' : '🔊'}
-        </button>
-        <div style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: connected ? '#22c55e' : '#ef4444',
-        }} />
-        <span style={{ fontSize: 11, color: '#aaa' }}>
-          {connected ? 'LIVE' : 'OFFLINE'}
-        </span>
-      </div>
-    </>
+          ))}
+          <button onClick={handleRestart} style={btnStyle('#7f1d1d')}>
+            ✕
+          </button>
+        </>
+      )}
+    </div>
   )
+}
+
+/* ── Exported component: renders the requested section ── */
+
+interface HUDProps {
+  section: 'resources' | 'tick' | 'status' | 'controls'
+}
+
+export default function HUD({ section }: HUDProps) {
+  switch (section) {
+    case 'resources': return <ResourcesSection />
+    case 'tick':      return <TickSection />
+    case 'status':    return <StatusSection />
+    case 'controls':  return <ControlsSection />
+  }
 }
 
 function btnStyle(bg: string): CSSProperties {
   return {
     background: bg,
-    border: '1px solid #555',
+    border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: 4,
-    color: '#e0e0e0',
+    color: '#d1d5db',
     cursor: 'pointer',
-    fontSize: 12,
-    padding: '5px 10px',
+    fontSize: 11,
+    padding: '4px 8px',
     fontFamily: 'inherit',
   }
 }

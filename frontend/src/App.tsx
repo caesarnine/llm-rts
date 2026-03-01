@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
+import type { CSSProperties } from 'react'
 import { useWebSocket } from './network/useWebSocket'
 import GameScene from './scene/GameScene'
 import HUD from './ui/HUD'
@@ -12,6 +13,22 @@ import Minimap from './ui/Minimap'
 import EconomyGraph from './ui/EconomyGraph'
 import { useSoundEffects } from './audio/useSoundEffects'
 
+/* ── shared layout styles ─────────────────────────────────────── */
+
+const corner = (
+  v: 'top' | 'bottom',
+  h: 'left' | 'right',
+): CSSProperties => ({
+  position: 'absolute',
+  [v]: 12,
+  [h]: 12,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  alignItems: h === 'right' ? 'flex-end' : 'flex-start',
+  pointerEvents: 'none',
+})
+
 function Overlay() {
   const connected = useGameStore((s) => s.connected)
   const phase = useGameStore((s) => s.gameState?.phase)
@@ -19,8 +36,53 @@ function Overlay() {
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {/* ── Full-width strength bar at very top ── */}
       <StrengthBar />
-      {/* Connection banner */}
+
+      {/* ── Top-left: team resources ── */}
+      <div style={{ ...corner('top', 'left'), top: 22 }}>
+        <HUD section="resources" />
+      </div>
+
+      {/* ── Top-center: tick / phase / thinking ── */}
+      <div style={{
+        position: 'absolute', top: 22, left: '50%',
+        transform: 'translateX(-50%)',
+        pointerEvents: 'none',
+      }}>
+        <HUD section="tick" />
+      </div>
+
+      {/* ── Top-right: connection + mute ── */}
+      <div style={{ ...corner('top', 'right'), top: 22 }}>
+        <HUD section="status" />
+      </div>
+
+      {/* ── Bottom-left column: economy graph, then battle log ── */}
+      <div style={{ ...corner('bottom', 'left'), bottom: 50, maxHeight: 'calc(100vh - 160px)' }}>
+        <EconomyGraph />
+        <EventLog />
+      </div>
+
+      {/* ── Bottom-center: commentary + game controls ── */}
+      <div style={{
+        position: 'absolute', bottom: 12, left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', gap: 8,
+        pointerEvents: 'none',
+      }}>
+        <Commentary />
+        <HUD section="controls" />
+      </div>
+
+      {/* ── Bottom-right column: minimap, then commander panels ── */}
+      <div style={{ ...corner('bottom', 'right'), bottom: 50, maxHeight: 'calc(100vh - 160px)' }}>
+        <Minimap />
+        <CommanderPanel />
+      </div>
+
+      {/* ── Center modals (connection / winner) ── */}
       {!connected && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%',
@@ -34,7 +96,6 @@ function Overlay() {
         </div>
       )}
 
-      {/* Winner banner */}
       {phase === 'finished' && winner && (
         <div style={{
           position: 'absolute', top: '40%', left: '50%',
@@ -54,13 +115,6 @@ function Overlay() {
           </div>
         </div>
       )}
-
-      <Commentary />
-      <HUD />
-      <CommanderPanel />
-      <EventLog />
-      <Minimap />
-      <EconomyGraph />
     </div>
   )
 }
@@ -71,15 +125,15 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <Canvas shadows gl={{ antialias: true, toneMapping: 3 /* ACESFilmicToneMapping */ }}>
+      <Canvas shadows gl={{ antialias: true, toneMapping: 3 }}>
         <Suspense fallback={null}>
           <GameScene />
         </Suspense>
       </Canvas>
-      {/* CSS vignette overlay */}
+      {/* CSS vignette */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        boxShadow: 'inset 0 0 120px 40px rgba(0,0,0,0.6)',
+        boxShadow: 'inset 0 0 120px 40px rgba(0,0,0,0.5)',
       }} />
       <Overlay />
     </div>

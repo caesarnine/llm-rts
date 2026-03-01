@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 
-const W = 200
-const H = 60
+const W = 180
+const H = 50
 const MAX_POINTS = 60
 
 export default function EconomyGraph() {
@@ -25,6 +25,8 @@ export default function EconomyGraph() {
     }
   }, [gameState?.tick])
 
+  if (!gameState || gameState.phase !== 'running') return null
+
   const redData = history.current.red
   const blueData = history.current.blue
   const maxVal = Math.max(10, ...redData, ...blueData)
@@ -41,20 +43,15 @@ export default function EconomyGraph() {
   }
 
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: 60,
-      left: 12,
-      pointerEvents: 'none',
-    }}>
-      <div style={{ fontSize: 9, color: '#666', marginBottom: 2 }}>GOLD</div>
+    <div>
+      <div style={{ fontSize: 9, color: '#555', marginBottom: 2, letterSpacing: 1 }}>GOLD</div>
       <svg
         ref={svgRef}
         width={W}
         height={H}
         style={{
           background: 'rgba(10,10,20,0.7)',
-          border: '1px solid #333',
+          border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 4,
         }}
       >

@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 
-const SIZE = 160
+const SIZE = 140
 
 const TERRAIN_MINIMAP_COLOR: Record<number, string> = {
   0: '#3a7d44',
@@ -24,7 +24,6 @@ export default function Minimap() {
     const scaleX = SIZE / mapW
     const scaleZ = SIZE / mapH
 
-    // Clear
     ctx.fillStyle = '#111'
     ctx.fillRect(0, 0, SIZE, SIZE)
 
@@ -54,7 +53,7 @@ export default function Minimap() {
     for (const team of Object.values(teams)) {
       ctx.fillStyle = team.team === 'red' ? '#cc3333' : '#3366cc'
       for (const b of team.buildings) {
-        ctx.fillRect(b.position.x * scaleX - 2, b.position.z * scaleZ - 2, 5, 5)
+        ctx.fillRect(b.position.x * scaleX - 2, b.position.z * scaleZ - 2, 4, 4)
       }
     }
 
@@ -66,11 +65,12 @@ export default function Minimap() {
       }
     }
 
-    // Border
-    ctx.strokeStyle = '#444'
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'
     ctx.lineWidth = 1
     ctx.strokeRect(0, 0, SIZE, SIZE)
   }, [gameState])
+
+  if (!gameState || gameState.phase === 'starting') return null
 
   return (
     <canvas
@@ -78,12 +78,8 @@ export default function Minimap() {
       width={SIZE}
       height={SIZE}
       style={{
-        position: 'absolute',
-        bottom: 60,
-        right: 12,
         borderRadius: 4,
-        border: '1px solid #444',
-        pointerEvents: 'none',
+        border: '1px solid rgba(255,255,255,0.08)',
         imageRendering: 'pixelated',
       }}
     />
