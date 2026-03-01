@@ -17,12 +17,14 @@ interface GameStore {
   connected: boolean
   speed: number
   fogPerspective: 'red' | 'blue' | null
+  muted: boolean
 
   setGameState: (state: GameState) => void
   setConnected: (v: boolean) => void
   setSpeed: (v: number) => void
   setFogPerspective: (p: 'red' | 'blue' | null) => void
   pruneDeathEffects: () => void
+  setMuted: (v: boolean) => void
 }
 
 let effectCounter = 0
@@ -48,6 +50,7 @@ export const useGameStore = create<GameStore>((set) => ({
   connected: false,
   speed: 1,
   fogPerspective: null,
+  muted: false,
 
   setGameState: (state) =>
     set((s) => {
@@ -70,4 +73,6 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({
       deathEffects: s.deathEffects.filter(e => Date.now() - e.createdAt < 2000),
     })),
+
+  setMuted: (v) => set({ muted: v }),
 }))

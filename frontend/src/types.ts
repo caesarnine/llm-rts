@@ -9,7 +9,7 @@ export interface Position {
 export type UnitType = 'worker' | 'warrior' | 'archer' | 'scout'
 export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering' | 'building' | 'dead'
 export type Team = 'red' | 'blue'
-export type BuildingType = 'base' | 'barracks' | 'tower' | 'mine'
+export type BuildingType = 'base' | 'barracks' | 'tower' | 'mine' | 'supply_depot'
 export type ResourceType = 'gold' | 'wood' | 'stone'
 export type GamePhase = 'starting' | 'running' | 'finished'
 
@@ -32,6 +32,11 @@ export interface Unit {
   gather_target_id: string | null
   build_target_id: string | null
   attack_cooldown: number
+  // Ability fields
+  ability_cooldown: number
+  ability_active: string | null
+  ability_ticks_remaining: number
+  is_stealthed: boolean
 }
 
 export interface Building {
@@ -79,6 +84,17 @@ export interface CapturePoint {
   radius: number
 }
 
+export type MapEventType = 'gold_cache' | 'supercharge' | 'resource_refresh'
+
+export interface MapEvent {
+  id: string
+  event_type: MapEventType
+  position: Position
+  tick_started: number
+  duration: number
+  data: Record<string, unknown>
+}
+
 export interface GameState {
   tick: number
   map_width: number
@@ -87,6 +103,8 @@ export interface GameState {
   teams: Record<Team, TeamState>
   resource_nodes: ResourceNode[]
   capture_points: CapturePoint[]
+  active_map_events: MapEvent[]
+  population_cap: Record<string, number>
   phase: GamePhase
   winner: string | null
   events: GameEvent[]

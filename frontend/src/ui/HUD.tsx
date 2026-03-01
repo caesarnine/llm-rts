@@ -14,13 +14,17 @@ const card: CSSProperties = {
 function TeamResources({ team }: { team: 'red' | 'blue' }) {
   const resources = useGameStore((s) => s.gameState?.teams[team]?.resources)
   const unitCount = useGameStore((s) => s.gameState?.teams[team]?.units.length ?? 0)
+  const popCap = useGameStore((s) => s.gameState?.population_cap?.[team] ?? 15)
   const color = team === 'red' ? '#ef4444' : '#3b82f6'
 
   if (!resources) return null
   return (
     <div style={{ ...card, pointerEvents: 'none' }}>
       <div style={{ color, fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
-        {team.toUpperCase()} TEAM ({unitCount} units)
+        {team.toUpperCase()} TEAM
+        <span style={{ fontWeight: 'normal', color: '#aaa', marginLeft: 6, fontSize: 10 }}>
+          {unitCount}/{popCap} pop
+        </span>
       </div>
       <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
         <span>🪙 {resources.gold}</span>
@@ -38,6 +42,8 @@ export default function HUD() {
   const speed = useGameStore((s) => s.speed)
   const setSpeed = useGameStore((s) => s.setSpeed)
   const connected = useGameStore((s) => s.connected)
+  const muted = useGameStore((s) => s.muted)
+  const setMuted = useGameStore((s) => s.setMuted)
 
   const handleStart = async () => {
     await fetch('/api/game/start?use_llm=false', { method: 'POST' })
@@ -127,12 +133,22 @@ export default function HUD() {
         )}
       </div>
 
-      {/* Connection dot */}
+      {/* Connection dot + mute */}
       <div style={{
         position: 'absolute', top: 12, right: 12,
-        display: 'flex', alignItems: 'center', gap: 6,
-        ...card, pointerEvents: 'none',
+        display: 'flex', alignItems: 'center', gap: 8,
+        ...card, pointerEvents: 'auto',
       }}>
+        <button
+          onClick={() => setMuted(!muted)}
+          style={{
+            background: 'none', border: 'none', color: '#aaa',
+            cursor: 'pointer', fontSize: 14, padding: 0, fontFamily: 'inherit',
+          }}
+          title={muted ? 'Unmute' : 'Mute'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
         <div style={{
           width: 8, height: 8, borderRadius: '50%',
           background: connected ? '#22c55e' : '#ef4444',

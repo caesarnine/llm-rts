@@ -8,6 +8,9 @@ import EventLog from './ui/EventLog'
 import StrengthBar from './ui/StrengthBar'
 import { useGameStore } from './store/gameStore'
 import Commentary from './ui/Commentary'
+import Minimap from './ui/Minimap'
+import EconomyGraph from './ui/EconomyGraph'
+import { useSoundEffects } from './audio/useSoundEffects'
 
 function Overlay() {
   const connected = useGameStore((s) => s.connected)
@@ -56,20 +59,28 @@ function Overlay() {
       <HUD />
       <CommanderPanel />
       <EventLog />
+      <Minimap />
+      <EconomyGraph />
     </div>
   )
 }
 
 export default function App() {
   useWebSocket()
+  useSoundEffects()
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <Canvas shadows gl={{ antialias: true }}>
+      <Canvas shadows gl={{ antialias: true, toneMapping: 3 /* ACESFilmicToneMapping */ }}>
         <Suspense fallback={null}>
           <GameScene />
         </Suspense>
       </Canvas>
+      {/* CSS vignette overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        boxShadow: 'inset 0 0 120px 40px rgba(0,0,0,0.6)',
+      }} />
       <Overlay />
     </div>
   )

@@ -35,13 +35,15 @@ export default function AttackLines({ teams }: AttackLinesProps) {
     for (const team of Object.values(teams)) {
       for (const unit of team.units) {
         if (unit.state !== 'attacking' || !unit.target_unit_id) continue
+        // Archers use projectiles instead of attack lines
+        if (unit.unit_type === 'archer') continue
         const from = posMap.get(unit.id)
         const to = posMap.get(unit.target_unit_id)
         if (!from || !to) continue
         result.push({
           from,
           to,
-          isArcher: unit.unit_type === 'archer',
+          isArcher: false,
           team: unit.team,
         })
       }

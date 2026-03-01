@@ -34,6 +34,12 @@ class Unit(BaseModel):
     target_position: Optional[Position] = None
     target_unit_id: Optional[str] = None
 
+    # Ability state
+    ability_cooldown: int = 0        # ticks until ability can be used again
+    ability_active: Optional[str] = None    # currently active ability name
+    ability_ticks_remaining: int = 0 # ticks left on active ability
+    is_stealthed: bool = False
+
     # Internal engine state (not shown to LLM)
     path: list[list[float]] = Field(default_factory=list)   # waypoints [[x,z], ...]
     gather_target_id: Optional[str] = None
@@ -44,7 +50,7 @@ class Unit(BaseModel):
 class Building(BaseModel):
     id: str = Field(default_factory=_short_id)
     team: Literal["red", "blue"]
-    building_type: Literal["base", "barracks", "tower", "mine"]
+    building_type: Literal["base", "barracks", "tower", "mine", "supply_depot"]
     position: Position
     hp: int
     max_hp: int
@@ -85,6 +91,15 @@ class GameEvent(BaseModel):
     data: dict = Field(default_factory=dict)
 
 
+class MapEvent(BaseModel):
+    id: str = Field(default_factory=_short_id)
+    event_type: Literal["gold_cache", "supercharge", "resource_refresh"]
+    position: Position
+    tick_started: int
+    duration: int = 30          # ticks before expiry
+    data: dict = Field(default_factory=dict)
+
+
 class CapturePoint(BaseModel):
     id: str = Field(default_factory=_short_id)
     position: Position
@@ -105,5 +120,8 @@ class GameState(BaseModel):
     phase: Literal["starting", "running", "finished"] = "starting"
     winner: Optional[str] = None
     events: list[GameEvent] = Field(default_factory=list)   # events from THIS tick
+    active_map_events: list[MapEvent] = Field(default_factory=list)
+    population_cap: dict[str, int] = Field(default_factory=dict)  # team -> cap
+    next_map_event_tick: int = 0
     llm_thinking: bool = False   # True while commanders are being queried (game paused)
     commentary: str = ""

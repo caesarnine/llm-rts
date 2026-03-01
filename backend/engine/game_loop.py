@@ -16,6 +16,7 @@ from models.actions import (
     GatherCommand,
     BuildCommand,
     TrainCommand,
+    AbilityCommand,
 )
 from engine.pathfinding import a_star, is_walkable
 from engine.map_generator import generate_map
@@ -24,6 +25,8 @@ from engine.combat import process_combat
 from engine.resources import process_resources
 from engine.buildings import process_buildings
 from engine.capture import process_capture
+from engine.abilities import process_abilities
+from engine.map_events import process_map_events
 from config import (
     settings,
     BUILDING_COSTS,
@@ -31,6 +34,9 @@ from config import (
     TRAIN_COSTS,
     TRAIN_TIME,
     UNIT_STATS,
+    ABILITY_DEFS,
+    POPULATION_CAP_BASE,
+    POPULATION_PER_DEPOT,
 )
 
 if TYPE_CHECKING:
@@ -162,6 +168,13 @@ def _apply_commands(state: GameState, team_name: str, actions: CommanderActions)
                 bld = building_map.get(cmd.building_id)
                 if not bld or bld.building_type != "barracks" or bld.build_progress < 1.0:
                     continue
+                # Population cap check
+                current_pop = len([u for u in team.units if u.state != "dead"])
+                depot_count = sum(1 for b in team.buildings if b.building_type == "supply_depot" and b.build_progress >= 1.0)
+                pop_cap = POPULATION_CAP_BASE + depot_count * POPULATION_PER_DEPOT
+                queued = sum(len(b.training_queue) for b in team.buildings)
+                if current_pop + queued >= pop_cap:
+                    continue
                 cost = TRAIN_COSTS.get(cmd.unit_type, {})
                 can_afford = all(team.resources.get(r, 0) >= v for r, v in cost.items())
                 if not can_afford:
@@ -172,6 +185,50 @@ def _apply_commands(state: GameState, team_name: str, actions: CommanderActions)
                     "unit_type": cmd.unit_type,
                     "ticks_remaining": TRAIN_TIME[cmd.unit_type],
                 })
+
+            elif isinstance(cmd, AbilityCommand):
+                for uid in cmd.unit_ids:
+                    unit = unit_map.get(uid)
+                    if not unit:
+                        continue
+                    ability_def = ABILITY_DEFS.get(unit.unit_type)
+                    if not ability_def:
+                        continue
+                    if unit.ability_cooldown > 0 or unit.ability_active:
+                        continue
+                    # Activate ability
+                    ability_name = ability_def["name"]
+                    unit.ability_active = ability_name
+                    unit.ability_cooldown = ability_def["cooldown"]
+                    unit.ability_ticks_remaining = ability_def["duration"]
+
+                    if ability_name == "stealth":
+                        unit.is_stealthed = True
+                    elif ability_name == "volley" and cmd.target:
+                        # Instant AoE damage at target location
+                        aoe_r = ability_def.get("aoe_radius", 2.5)
+                        aoe_dmg = ability_def.get("aoe_damage", 10)
+                        tx, tz = cmd.target.x, cmd.target.z
+                        for et in state.teams.values():
+                            if et.team == team_name:
+                                continue
+                            for eu in et.units:
+                                if eu.state == "dead":
+                                    continue
+                                dx = eu.position.x - tx
+                                dz = eu.position.z - tz
+                                if math.sqrt(dx * dx + dz * dz) <= aoe_r:
+                                    eu.hp = max(0, eu.hp - aoe_dmg)
+                                    if eu.hp == 0:
+                                        eu.state = "dead"
+                                        state.events.append(GameEvent(
+                                            tick=state.tick,
+                                            event_type="unit_killed",
+                                            message=f"{team_name.capitalize()} archer volley destroyed {eu.team} {eu.unit_type}",
+                                            data={"killer": unit.id, "victim": eu.id, "x": eu.position.x, "z": eu.position.z, "team": eu.team},
+                                        ))
+                        unit.ability_active = None  # instant, no duration
+                        unit.ability_ticks_remaining = 0
 
         except Exception as exc:
             logger.warning("Error applying command %s: %s", cmd, exc)
@@ -186,6 +243,9 @@ def _process_movement(state: GameState) -> None:
     for team in state.teams.values():
         for unit in team.units:
             if unit.state == "dead":
+                continue
+            # Shield wall blocks movement
+            if unit.ability_active == "shield_wall":
                 continue
             if unit.gather_target_id or unit.build_target_id or unit.target_unit_id:
                 continue   # handled by other systems
@@ -202,6 +262,9 @@ def _process_movement(state: GameState) -> None:
             dist = math.sqrt(dx * dx + dz * dz)
 
             step = unit.speed
+            # Sprint speed multiplier
+            if unit.ability_active == "sprint":
+                step *= ABILITY_DEFS.get(unit.unit_type, {}).get("speed_multiplier", 1.0)
             if step >= dist:
                 unit.position.x, unit.position.z = tx, tz
                 unit.path.pop(0)
@@ -302,8 +365,15 @@ class GameManager:
         process_resources(self.state)
         process_buildings(self.state)
         process_capture(self.state)
+        process_abilities(self.state)
+        process_map_events(self.state)
         compute_fog_of_war(self.state)
         _check_win_condition(self.state)
+
+        # Compute population cap per team
+        for tn, t in self.state.teams.items():
+            depot_count = sum(1 for b in t.buildings if b.building_type == "supply_depot" and b.build_progress >= 1.0)
+            self.state.population_cap[tn] = POPULATION_CAP_BASE + depot_count * POPULATION_PER_DEPOT
 
         # Accumulate events for commentator
         self._recent_events.extend(self.state.events)

@@ -31,7 +31,7 @@ class GatherCommand(BaseModel):
 class BuildCommand(BaseModel):
     """Order workers to construct a building at a position."""
     type: Literal["build"] = "build"
-    building_type: Literal["barracks", "tower", "mine"]
+    building_type: Literal["barracks", "tower", "mine", "supply_depot"]
     position: Position
     worker_ids: list[str]
 
@@ -43,8 +43,15 @@ class TrainCommand(BaseModel):
     unit_type: Literal["worker", "warrior", "archer", "scout"]
 
 
+class AbilityCommand(BaseModel):
+    """Activate the special ability for one or more units."""
+    type: Literal["ability"] = "ability"
+    unit_ids: list[str]
+    target: Position | None = None   # used for volley targeting
+
+
 AnyCommand = Annotated[
-    Union[MoveCommand, AttackCommand, GatherCommand, BuildCommand, TrainCommand],
+    Union[MoveCommand, AttackCommand, GatherCommand, BuildCommand, TrainCommand, AbilityCommand],
     Field(discriminator="type"),
 ]
 

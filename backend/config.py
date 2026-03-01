@@ -88,3 +88,42 @@ TRAIN_TIME: dict[str, int] = {  # ticks
 GATHER_RATE: int = 5          # resources per tick per worker
 MINE_GATHER_RATE: int = 3     # auto-gather per tick from a completed mine building
 WORKER_BUILD_RATE: float = 0.05   # build_progress added per worker per tick
+
+# ── Terrain bonuses ───────────────────────────────────────────────────────────
+TERRAIN_DEFENSE_BONUS: dict[int, float] = {1: 0.30}          # forest = +30% defense
+TERRAIN_RANGE_BONUS: dict[int, float] = {2: 1.0}             # mountain = +1 range for ranged
+
+# ── Counter system ────────────────────────────────────────────────────────────
+COUNTER_MULTIPLIERS: dict[tuple[str, str], float] = {
+    ("warrior", "archer"): 1.5,
+    ("archer", "scout"): 1.5,
+    ("scout", "warrior"): 1.5,
+}
+
+# ── Abilities ─────────────────────────────────────────────────────────────────
+ABILITY_DEFS: dict[str, dict] = {
+    "warrior": {"name": "shield_wall", "duration": 8, "cooldown": 30, "damage_reduction": 0.5, "blocks_movement": True},
+    "archer":  {"name": "volley", "duration": 0, "cooldown": 25, "aoe_radius": 2.5, "aoe_damage": 10},
+    "scout":   {"name": "stealth", "duration": 12, "cooldown": 35},
+    "worker":  {"name": "sprint", "duration": 6, "cooldown": 20, "speed_multiplier": 2.0},
+}
+
+# ── Population cap ────────────────────────────────────────────────────────────
+POPULATION_CAP_BASE: int = 15
+POPULATION_PER_DEPOT: int = 5
+
+# ── Supply depot ──────────────────────────────────────────────────────────────
+BUILDING_STATS["supply_depot"] = {"hp": 200, "vision": 3, "attack": 0, "attack_range": 0.0}
+BUILDING_COSTS["supply_depot"] = {"gold": 60, "wood": 40, "stone": 0}
+BUILDING_BUILD_TIME["supply_depot"] = 12
+
+# ── Map events ────────────────────────────────────────────────────────────────
+MAP_EVENT_INTERVAL: tuple[int, int] = (60, 90)   # ticks between random events
+
+# ── Comeback mechanic ─────────────────────────────────────────────────────────
+COMEBACK_BASE_ATTACK: int = 5
+COMEBACK_AURA_RANGE: float = 3.0
+
+# ── Escalation ────────────────────────────────────────────────────────────────
+ESCALATION_START_TICK: int = 300
+ESCALATION_DPS: int = 2

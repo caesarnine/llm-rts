@@ -14,13 +14,14 @@ from typing import Optional
 
 from models.game_state import GameState, Unit, ResourceNode, CapturePoint
 from models.actions import (
+    AbilityCommand,
     AttackCommand,
     CommanderActions,
     GatherCommand,
     MoveCommand,
     TrainCommand,
 )
-from config import TRAIN_COSTS, settings
+from config import TRAIN_COSTS, ABILITY_DEFS, settings
 from ai.prompts import format_state_for_llm, SYSTEM_PROMPTS
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,28 @@ class RandomCommander(BaseCommander):
                 unit_ids=[fighter.id],
                 target=target_cp.position,
             ))
+
+        # Use abilities heuristically
+        for unit in team.units:
+            if unit.state == "dead" or unit.ability_cooldown > 0 or unit.ability_active:
+                continue
+            ability_def = ABILITY_DEFS.get(unit.unit_type)
+            if not ability_def:
+                continue
+            # Warrior: shield wall when near enemies
+            if unit.unit_type == "warrior" and unit.state == "attacking":
+                commands.append(AbilityCommand(unit_ids=[unit.id]))
+            # Scout: stealth when idle or moving toward enemy
+            elif unit.unit_type == "scout" and unit.state in ("idle", "moving"):
+                commands.append(AbilityCommand(unit_ids=[unit.id]))
+            # Archer: volley on cluster of enemies
+            elif unit.unit_type == "archer" and enemy_units:
+                nearest = min(enemy_units, key=lambda u: _dist(unit.position.x, unit.position.z, u.position.x, u.position.z))
+                from models.game_state import Position as Pos
+                commands.append(AbilityCommand(unit_ids=[unit.id], target=Pos(x=nearest.position.x, z=nearest.position.z)))
+            # Worker: sprint when gathering
+            elif unit.unit_type == "worker" and unit.state == "gathering":
+                commands.append(AbilityCommand(unit_ids=[unit.id]))
 
         # Train warriors if we can afford it and have a barracks
         gold = team.resources.get("gold", 0)

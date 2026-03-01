@@ -13,7 +13,14 @@ import random
 from typing import Optional
 
 from models.game_state import GameState, GameEvent, Unit, Building
-from config import BUILDING_STATS
+from config import (
+    BUILDING_STATS,
+    TERRAIN_DEFENSE_BONUS,
+    TERRAIN_RANGE_BONUS,
+    COUNTER_MULTIPLIERS,
+    COMEBACK_BASE_ATTACK,
+    COMEBACK_AURA_RANGE,
+)
 
 
 def _dist(ax: float, az: float, bx: float, bz: float) -> float:
@@ -36,11 +43,44 @@ def _find_building_by_id(state: GameState, bid: str) -> Optional[Building]:
     return None
 
 
+def _get_terrain_at(state: GameState, x: float, z: float) -> int:
+    """Return terrain type at a world position."""
+    ix, iz = int(x), int(z)
+    if 0 <= iz < len(state.terrain) and 0 <= ix < len(state.terrain[0]):
+        return state.terrain[iz][ix]
+    return 0
+
+
+def _effective_range(unit: Unit, state: GameState) -> float:
+    """Unit's attack range, possibly boosted by terrain."""
+    base = unit.attack_range
+    if base > 1.5:  # ranged unit
+        t = _get_terrain_at(state, unit.position.x, unit.position.z)
+        base += TERRAIN_RANGE_BONUS.get(t, 0.0)
+    return base
+
+
 def _apply_damage(attacker: Unit | Building, target: Unit | Building, state: GameState) -> None:
     atk = attacker.attack if hasattr(attacker, "attack") else 0
     if isinstance(attacker, Unit):
         defense = target.defense if isinstance(target, Unit) else 0
+
+        # Terrain defense bonus for target
+        if isinstance(target, Unit):
+            t = _get_terrain_at(state, target.position.x, target.position.z)
+            defense_bonus = TERRAIN_DEFENSE_BONUS.get(t, 0.0)
+            defense = int(defense * (1.0 + defense_bonus))
+
         dmg = max(1, atk - defense)
+
+        # Counter multiplier
+        if isinstance(target, Unit):
+            mult = COUNTER_MULTIPLIERS.get((attacker.unit_type, target.unit_type), 1.0)
+            dmg = int(dmg * mult)
+
+        # Shield wall damage reduction
+        if isinstance(target, Unit) and target.ability_active == "shield_wall":
+            dmg = max(1, int(dmg * 0.5))
     else:
         dmg = atk  # tower hits bypass unit defense (simplified)
     target.hp = max(0, target.hp - dmg)
@@ -52,7 +92,7 @@ def _nearest_enemy_unit(unit: Unit, state: GameState) -> Optional[Unit]:
     best: Optional[Unit] = None
     best_d = float("inf")
     for e in enemy_team.units:
-        if e.state == "dead":
+        if e.state == "dead" or e.is_stealthed:
             continue
         d = _dist(unit.position.x, unit.position.z, e.position.x, e.position.z)
         if d < best_d:
@@ -113,9 +153,9 @@ def process_combat(state: GameState) -> None:
 
             # Auto-attack if no explicit target and enemy is close
             if not target_unit and unit.state not in ("gathering", "building"):
-                auto_range = unit.attack_range * 0.8
+                auto_range = _effective_range(unit, state) * 0.8
                 for e in enemy_team.units:
-                    if e.state == "dead":
+                    if e.state == "dead" or e.is_stealthed:
                         continue
                     if _dist(unit.position.x, unit.position.z, e.position.x, e.position.z) <= auto_range:
                         target_unit = e
@@ -123,9 +163,15 @@ def process_combat(state: GameState) -> None:
 
             if target_unit:
                 d = _dist(unit.position.x, unit.position.z, target_unit.position.x, target_unit.position.z)
-                if d <= unit.attack_range:
+                eff_range = _effective_range(unit, state)
+                if d <= eff_range:
                     # Attack!
                     unit.state = "attacking"
+                    # Break stealth on attack
+                    if unit.is_stealthed:
+                        unit.is_stealthed = False
+                        unit.ability_active = None
+                        unit.ability_ticks_remaining = 0
                     _apply_damage(unit, target_unit, state)
                     unit.attack_cooldown = 1  # 1-tick cooldown
                     if target_unit.hp == 0:
@@ -215,6 +261,34 @@ def process_combat(state: GameState) -> None:
                         ))
                 else:
                     _move_toward(unit, bld.position.x, bld.position.z)
+
+    # ── Comeback aura: losing team's base damages nearby enemies ─────────────
+    strengths: dict[str, float] = {}
+    for tn, t in state.teams.items():
+        s = sum(u.hp for u in t.units if u.state != "dead")
+        s += sum(t.resources.get(r, 0) for r in ("gold", "wood", "stone")) / 8.0
+        s += sum(b.hp * b.build_progress for b in t.buildings) / 4.0
+        strengths[tn] = s
+    for team_name in all_teams:
+        enemy_name = "blue" if team_name == "red" else "red"
+        my_str = strengths.get(team_name, 0)
+        enemy_str = strengths.get(enemy_name, 0)
+        if enemy_str > 0 and my_str < enemy_str * 0.6:
+            base = next((b for b in state.teams[team_name].buildings if b.building_type == "base"), None)
+            if base:
+                for e in state.teams[enemy_name].units:
+                    if e.state == "dead":
+                        continue
+                    d = _dist(base.position.x, base.position.z, e.position.x, e.position.z)
+                    if d <= COMEBACK_AURA_RANGE:
+                        e.hp = max(0, e.hp - COMEBACK_BASE_ATTACK)
+                        if e.hp == 0:
+                            e.state = "dead"
+                            state.events.append(GameEvent(
+                                tick=state.tick, event_type="unit_killed",
+                                message=f"{team_name.capitalize()} base aura destroyed {enemy_name} {e.unit_type}",
+                                data={"killer": base.id, "victim": e.id, "x": e.position.x, "z": e.position.z, "team": e.team},
+                            ))
 
     # ── Remove dead units ────────────────────────────────────────────────────
     for team in state.teams.values():

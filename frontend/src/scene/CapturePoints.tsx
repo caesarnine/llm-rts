@@ -76,6 +76,19 @@ function CapturePointMesh({ cp }: { cp: CapturePoint }) {
         </mesh>
       )}
 
+      {/* Light beam when owned */}
+      {cp.owner && (
+        <mesh position={[0, 3, 0]}>
+          <cylinderGeometry args={[0.08, 0.25, 5, 8]} />
+          <meshBasicMaterial
+            color={TEAM_COLORS[cp.owner] ?? NEUTRAL_COLOR}
+            transparent
+            opacity={0.15}
+            depthTest={false}
+          />
+        </mesh>
+      )}
+
       {/* Label */}
       <Html
         position={[0, 2.0, 0]}
