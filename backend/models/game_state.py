@@ -85,6 +85,15 @@ class GameEvent(BaseModel):
     data: dict = Field(default_factory=dict)
 
 
+class CapturePoint(BaseModel):
+    id: str = Field(default_factory=_short_id)
+    position: Position
+    owner: Optional[str] = None       # 'red', 'blue', or None
+    progress: dict[str, float] = Field(default_factory=dict)  # team -> 0.0–1.0
+    gold_per_tick: int = 3
+    radius: float = 2.0
+
+
 class GameState(BaseModel):
     tick: int = 0
     map_width: int
@@ -92,7 +101,9 @@ class GameState(BaseModel):
     terrain: list[list[int]]          # terrain[row][col]; 0=grass,1=forest,2=mountain,3=water
     teams: dict[str, TeamState]
     resource_nodes: list[ResourceNode]
+    capture_points: list[CapturePoint] = Field(default_factory=list)
     phase: Literal["starting", "running", "finished"] = "starting"
     winner: Optional[str] = None
     events: list[GameEvent] = Field(default_factory=list)   # events from THIS tick
     llm_thinking: bool = False   # True while commanders are being queried (game paused)
+    commentary: str = ""

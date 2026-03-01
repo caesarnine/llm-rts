@@ -70,6 +70,15 @@ export interface GameEvent {
   data: Record<string, unknown>
 }
 
+export interface CapturePoint {
+  id: string
+  position: Position
+  owner: Team | null
+  progress: Record<string, number>
+  gold_per_tick: number
+  radius: number
+}
+
 export interface GameState {
   tick: number
   map_width: number
@@ -77,8 +86,10 @@ export interface GameState {
   terrain: number[][]
   teams: Record<Team, TeamState>
   resource_nodes: ResourceNode[]
+  capture_points: CapturePoint[]
   phase: GamePhase
   winner: string | null
   events: GameEvent[]
   llm_thinking: boolean
+  commentary: string
 }

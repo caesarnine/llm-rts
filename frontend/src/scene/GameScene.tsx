@@ -4,6 +4,9 @@ import Terrain from './Terrain'
 import Units from './Units'
 import Buildings from './Buildings'
 import ResourceNodes from './ResourceNodes'
+import AttackLines from './AttackLines'
+import Effects from './Effects'
+import CapturePoints from './CapturePoints'
 
 export default function GameScene() {
   const gameState = useGameStore((s) => s.gameState)
@@ -52,8 +55,11 @@ export default function GameScene() {
         <>
           <Terrain terrain={gameState.terrain} mapWidth={mapW} mapHeight={mapH} />
           <ResourceNodes nodes={gameState.resource_nodes} />
+          <CapturePoints nodes={gameState.capture_points} />
           <Buildings teams={gameState.teams} />
           <Units teams={gameState.teams} />
+          <AttackLines teams={gameState.teams} />
+          <Effects />
         </>
       ) : (
         <mesh position={[cx, -0.05, cz]} receiveShadow>

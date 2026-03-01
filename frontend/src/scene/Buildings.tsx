@@ -29,6 +29,8 @@ function BuildingMesh({ building }: { building: Building }) {
           roughness={0.6}
           transparent={alpha < 1}
           opacity={0.5 + alpha * 0.5}
+          emissive="#ff2200"
+          emissiveIntensity={alpha >= 1 ? Math.max(0, (1 - hpFrac) * 0.6) : 0}
         />
       </mesh>
 

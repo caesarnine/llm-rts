@@ -5,7 +5,9 @@ import GameScene from './scene/GameScene'
 import HUD from './ui/HUD'
 import CommanderPanel from './ui/CommanderPanel'
 import EventLog from './ui/EventLog'
+import StrengthBar from './ui/StrengthBar'
 import { useGameStore } from './store/gameStore'
+import Commentary from './ui/Commentary'
 
 function Overlay() {
   const connected = useGameStore((s) => s.connected)
@@ -14,6 +16,7 @@ function Overlay() {
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      <StrengthBar />
       {/* Connection banner */}
       {!connected && (
         <div style={{
@@ -49,6 +52,7 @@ function Overlay() {
         </div>
       )}
 
+      <Commentary />
       <HUD />
       <CommanderPanel />
       <EventLog />

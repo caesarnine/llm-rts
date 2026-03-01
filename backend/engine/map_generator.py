@@ -14,6 +14,7 @@ from typing import Optional
 
 from models.game_state import (
     Building,
+    CapturePoint,
     GameState,
     Position,
     ResourceNode,
@@ -179,11 +180,39 @@ def generate_map(
         "blue": make_team("blue", blue_base[0], blue_base[1]),
     }
 
+    # ── Capture points ─────────────────────────────────────────────────────────
+    cx_map, cz_map = width // 2, height // 2
+
+    def _is_passable(tx: int, tz: int) -> bool:
+        if 0 <= tz < height and 0 <= tx < width:
+            return terrain[tz][tx] not in (2, 3)
+        return False
+
+    capture_points: list[CapturePoint] = []
+    cp_defs = [
+        (cx_map, cz_map, 5),           # center: +5g/tick
+        (cx_map - 8, cz_map, 3),       # left flank: +3g/tick
+        (cx_map + 8, cz_map, 3),       # right flank: +3g/tick
+    ]
+    for cpx, cpz, gpk in cp_defs:
+        # Snap to nearest passable cell if needed
+        if not _is_passable(cpx, cpz):
+            for dx, dz in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)]:
+                if _is_passable(cpx + dx, cpz + dz):
+                    cpx, cpz = cpx + dx, cpz + dz
+                    break
+        terrain[cpz][cpx] = 0  # ensure walkable
+        capture_points.append(CapturePoint(
+            position=Position(x=float(cpx), z=float(cpz)),
+            gold_per_tick=gpk,
+        ))
+
     return GameState(
         map_width=width,
         map_height=height,
         terrain=terrain,
         teams=teams,
         resource_nodes=resource_nodes,
+        capture_points=capture_points,
         phase="running",
     )

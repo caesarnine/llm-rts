@@ -23,6 +23,7 @@ from engine.fog_of_war import compute_fog_of_war
 from engine.combat import process_combat
 from engine.resources import process_resources
 from engine.buildings import process_buildings
+from engine.capture import process_capture
 from config import (
     settings,
     BUILDING_COSTS,
@@ -223,6 +224,10 @@ class GameManager:
         self._pending_commands: dict[str, CommanderActions] = {}
         self.commanders: dict[str, "BaseCommander"] = {}
         self._seed: Optional[int] = None
+        self._recent_events: list[GameEvent] = []
+
+        from ai.commentator import LLMCommentator
+        self._commentator = LLMCommentator()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -260,16 +265,17 @@ class GameManager:
 
             self.state.tick += 1
 
-            # Every N ticks: pause the game and await both commanders concurrently
-            if self.commanders and self.state.tick % settings.llm_command_interval == 0:
+            # Every N ticks: pause the game and await both commanders + commentator concurrently
+            if self.state.tick % settings.llm_command_interval == 0:
                 self.state.llm_thinking = True
                 await self._broadcast()   # let frontend show the "thinking" indicator
 
-                await asyncio.gather(
-                    *[self._request_orders(team_name) for team_name in self.commanders]
-                )
+                coros = [self._request_orders(t) for t in self.commanders]
+                coros.append(self._request_commentary())
+                await asyncio.gather(*coros, return_exceptions=True)
 
                 self.state.llm_thinking = False
+                self._recent_events.clear()
                 # commands are now in _pending_commands; applied on next _process_tick
 
             elapsed = asyncio.get_event_loop().time() - t0
@@ -295,8 +301,12 @@ class GameManager:
         process_combat(self.state)
         process_resources(self.state)
         process_buildings(self.state)
+        process_capture(self.state)
         compute_fog_of_war(self.state)
         _check_win_condition(self.state)
+
+        # Accumulate events for commentator
+        self._recent_events.extend(self.state.events)
 
     async def _request_orders(self, team_name: str) -> None:
         if not self.state:
@@ -309,6 +319,16 @@ class GameManager:
             self._pending_commands[team_name] = actions
         except Exception as exc:
             logger.error("Commander %s error: %s", team_name, exc)
+
+    async def _request_commentary(self) -> None:
+        if not self.state:
+            return
+        try:
+            text = await self._commentator.get_commentary(self.state, self._recent_events)
+            if text:
+                self.state.commentary = text
+        except Exception as exc:
+            logger.debug("Commentary error: %s", exc)
 
     # ── Broadcasting ──────────────────────────────────────────────────────────
 

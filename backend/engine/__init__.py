@@ -4,6 +4,7 @@ from .fog_of_war import compute_fog_of_war
 from .combat import process_combat
 from .resources import process_resources
 from .buildings import process_buildings
+from .capture import process_capture
 from .game_loop import GameManager
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "process_combat",
     "process_resources",
     "process_buildings",
+    "process_capture",
     "GameManager",
 ]

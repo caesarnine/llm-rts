@@ -12,7 +12,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from models.game_state import GameState, Unit, ResourceNode
+from models.game_state import GameState, Unit, ResourceNode, CapturePoint
 from models.actions import (
     AttackCommand,
     CommanderActions,
@@ -77,22 +77,45 @@ class RandomCommander(BaseCommander):
             )
             commands.append(GatherCommand(unit_ids=[worker.id], resource_node_id=node.id))
 
-        # Fighters: attack nearest enemy or move toward enemy base
+        # Fighters: split between pressing the enemy base and handling nearby threats
         enemy_units = [u for u in enemy_team.units if u.state != "dead"]
         enemy_buildings = enemy_team.buildings
+        enemy_base = next((b for b in enemy_buildings if b.building_type == "base"), None)
+        # Fall back to any building if base is gone somehow
+        fallback_building = enemy_base or (enemy_buildings[0] if enemy_buildings else None)
 
-        for fighter in fighters:
+        for i, fighter in enumerate(fighters):
             if fighter.state not in ("idle", "moving"):
                 continue
-            if enemy_units:
+            # Odd-indexed fighters always press the base; even-indexed handle units first
+            press_base = (i % 2 == 1) and fallback_building
+            if press_base:
+                commands.append(AttackCommand(unit_ids=[fighter.id], target_unit_id=fallback_building.id))
+            elif enemy_units:
                 target = min(
                     enemy_units,
                     key=lambda u: _dist(fighter.position.x, fighter.position.z, u.position.x, u.position.z),
                 )
                 commands.append(AttackCommand(unit_ids=[fighter.id], target_unit_id=target.id))
-            elif enemy_buildings:
-                target_b = enemy_buildings[0]
-                commands.append(AttackCommand(unit_ids=[fighter.id], target_unit_id=target_b.id))
+            elif fallback_building:
+                commands.append(AttackCommand(unit_ids=[fighter.id], target_unit_id=fallback_building.id))
+
+        # Send one idle fighter toward the nearest unowned/enemy-owned capture point
+        uncaptured_cps = [
+            cp for cp in state.capture_points
+            if cp.owner != team_name
+        ]
+        idle_fighters = [f for f in fighters if f.state == "idle"]
+        if uncaptured_cps and idle_fighters:
+            fighter = idle_fighters[0]
+            target_cp = min(
+                uncaptured_cps,
+                key=lambda cp: _dist(fighter.position.x, fighter.position.z, cp.position.x, cp.position.z),
+            )
+            commands.append(MoveCommand(
+                unit_ids=[fighter.id],
+                target=target_cp.position,
+            ))
 
         # Train warriors if we can afford it and have a barracks
         gold = team.resources.get("gold", 0)
@@ -107,6 +130,8 @@ class RandomCommander(BaseCommander):
             summary_parts.append(f"{len(workers)} workers gathering")
         if fighters:
             summary_parts.append(f"{len(fighters)} fighters attacking")
+        if uncaptured_cps:
+            summary_parts.append(f"contesting {len(uncaptured_cps)} capture point(s)")
         summary = "; ".join(summary_parts) or "Holding position"
 
         return CommanderActions(commands=commands, summary=summary)

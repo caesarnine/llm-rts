@@ -105,9 +105,11 @@ def process_combat(state: GameState) -> None:
                 t = _find_unit_by_id(state, unit.target_unit_id)
                 if t and t.state != "dead":
                     target_unit = t
-                elif t is None or t.state == "dead":
-                    # Try targeting enemy building instead (fallback)
+                elif t is not None and t.state == "dead":
+                    # Confirmed dead unit — clear target
                     unit.target_unit_id = None
+                # else t is None: target_unit_id may refer to a building;
+                # leave it intact so the building-attack section below handles it
 
             # Auto-attack if no explicit target and enemy is close
             if not target_unit and unit.state not in ("gathering", "building"):
@@ -132,7 +134,11 @@ def process_combat(state: GameState) -> None:
                             tick=state.tick,
                             event_type="unit_killed",
                             message=f"{team_name.capitalize()} {unit.unit_type} destroyed {enemy_name} {target_unit.unit_type}",
-                            data={"killer": unit.id, "victim": target_unit.id},
+                            data={
+                                "killer": unit.id, "victim": target_unit.id,
+                                "x": target_unit.position.x, "z": target_unit.position.z,
+                                "team": target_unit.team,
+                            },
                         ))
                         unit.target_unit_id = None
                 else:
@@ -173,7 +179,11 @@ def process_combat(state: GameState) -> None:
                         tick=state.tick,
                         event_type="unit_killed",
                         message=f"{team_name.capitalize()} tower destroyed {enemy_name} {best.unit_type}",
-                        data={"killer": building.id, "victim": best.id},
+                        data={
+                            "killer": building.id, "victim": best.id,
+                            "x": best.position.x, "z": best.position.z,
+                            "team": best.team,
+                        },
                     ))
 
     # ── Building attacks (units targeting buildings) ─────────────────────────
@@ -197,7 +207,11 @@ def process_combat(state: GameState) -> None:
                             tick=state.tick,
                             event_type="building_destroyed",
                             message=f"{team_name.capitalize()} destroyed {enemy_name} {bld.building_type}",
-                            data={"attacker": unit.id, "building": bld.id},
+                            data={
+                                "attacker": unit.id, "building": bld.id,
+                                "x": bld.position.x, "z": bld.position.z,
+                                "team": bld.team, "building_type": bld.building_type,
+                            },
                         ))
                 else:
                     _move_toward(unit, bld.position.x, bld.position.z)

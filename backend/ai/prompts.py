@@ -11,7 +11,9 @@ _SHARED_SYSTEM_PROMPT = (
     "MAP: Grid-based. Terrain — 0=grass, 1=forest, 2=mountain(impassable), 3=water(impassable). "
     "Positions are (x, z) coordinates.\n\n"
     "UNITS: worker(gathers resources & builds), warrior(melee fighter), archer(ranged, attack_range=4), scout(fast, high vision).\n"
-    "BUILDINGS: base(your HQ — losing it loses the game), barracks(trains units), tower(auto-attacks nearby enemies), mine(auto-gathers resources without workers).\n\n"
+    "BUILDINGS: base(your HQ — losing it loses the game), barracks(trains units), tower(auto-attacks nearby enemies), mine(auto-gathers resources without workers).\n"
+    "CAPTURE POINTS: Neutral map objectives. Move units within radius 2 to capture. Owning one generates gold each tick. "
+    "Contesting (both teams present) halts progress. Capturing mid-map is key to economic dominance.\n\n"
     "Each decision cycle you receive the current game state and must issue commands. "
     "Units keep executing their last orders between your decisions, so focus on high-level intent. "
     "Issue commands as structured data. Include a brief summary of your strategy."
@@ -95,6 +97,20 @@ def format_state_for_llm(state: GameState, team_name: str) -> str:
         lines.append(
             f"  {n.resource_type}#{n.id} pos=({n.position.x:.0f},{n.position.z:.0f}) remaining={n.remaining}"
         )
+
+    # Capture points (always visible — global map feature)
+    if state.capture_points:
+        lines.append(
+            "\nCAPTURE POINTS (stand units within radius=2 to capture; owner earns gold/tick):"
+        )
+        for cp in state.capture_points:
+            owner_str = f"Owned by {cp.owner.upper()}" if cp.owner else "Neutral"
+            red_pct = int(cp.progress.get("red", 0) * 100)
+            blue_pct = int(cp.progress.get("blue", 0) * 100)
+            lines.append(
+                f"  {cp.id} pos=({cp.position.x:.0f},{cp.position.z:.0f}): {owner_str} "
+                f"[Red {red_pct}% / Blue {blue_pct}%] +{cp.gold_per_tick}g/tick if owned"
+            )
 
     lines.append("\nIssue your commands for this turn.")
     return "\n".join(lines)
