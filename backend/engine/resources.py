@@ -9,7 +9,7 @@ import math
 from typing import Optional
 
 from models.game_state import GameState, GameEvent, ResourceNode, Unit
-from config import GATHER_RATE, MINE_GATHER_RATE
+from config import GATHER_RATE, MINE_GATHER_RATE, TECH_TREE
 
 
 GATHER_PROXIMITY = 1.8  # distance at which a worker can gather
@@ -58,12 +58,16 @@ def process_resources(state: GameState) -> None:
 
             d = _dist(unit.position.x, unit.position.z, node.position.x, node.position.z)
             if d <= GATHER_PROXIMITY:
-                # Gather!
-                amount = min(GATHER_RATE, node.remaining)
+                # Gather! Apply war_economy bonus if researched
+                rate = GATHER_RATE
+                if "war_economy" in team.researched_techs:
+                    rate += int(TECH_TREE["war_economy"]["effect"]["value"])
+                amount = min(rate, node.remaining)
                 node.remaining -= amount
                 team.resources[node.resource_type] = (
                     team.resources.get(node.resource_type, 0) + amount
                 )
+                team.stats_resources_gathered += amount
                 unit.state = "gathering"
             else:
                 _move_toward(unit, node.position.x, node.position.z)

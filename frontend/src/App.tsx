@@ -11,6 +11,8 @@ import { useGameStore } from './store/gameStore'
 import Commentary from './ui/Commentary'
 import Minimap from './ui/Minimap'
 import EconomyGraph from './ui/EconomyGraph'
+import StatsPanel from './ui/StatsPanel'
+import UnitInspector from './ui/UnitInspector'
 import { useSoundEffects } from './audio/useSoundEffects'
 
 /* ── shared layout styles ─────────────────────────────────────── */
@@ -53,9 +55,10 @@ function Overlay() {
         <HUD section="tick" />
       </div>
 
-      {/* ── Top-right: connection + mute ── */}
+      {/* ── Top-right: connection + mute + stats ── */}
       <div style={{ ...corner('top', 'right'), top: 22 }}>
         <HUD section="status" />
+        <StatsPanel />
       </div>
 
       {/* ── Bottom-left column: economy graph, then battle log ── */}
@@ -76,8 +79,9 @@ function Overlay() {
         <HUD section="controls" />
       </div>
 
-      {/* ── Bottom-right column: minimap, then commander panels ── */}
+      {/* ── Bottom-right column: unit inspector, minimap, then commander panels ── */}
       <div style={{ ...corner('bottom', 'right'), bottom: 50, maxHeight: 'calc(100vh - 160px)' }}>
+        <UnitInspector />
         <Minimap />
         <CommanderPanel />
       </div>

@@ -82,6 +82,19 @@ class TeamState(BaseModel):
     visible_cells: list[list[int]] = Field(default_factory=list)
     # Last commander strategy summary (shown in UI)
     commander_summary: str = ""
+    commander_reasoning: str = ""
+    commander_model: str = ""   # which LLM model is running this team
+
+    # Tech tree
+    researched_techs: list[str] = Field(default_factory=list)
+    research_queue: dict = Field(default_factory=dict)  # {"tech_id": str, "ticks_remaining": int}
+
+    # Cumulative stats
+    stats_units_trained: int = 0
+    stats_units_lost: int = 0
+    stats_resources_gathered: int = 0
+    stats_damage_dealt: int = 0
+    stats_buildings_built: int = 0
 
 
 class GameEvent(BaseModel):

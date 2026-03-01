@@ -19,9 +19,10 @@ from models.actions import (
     CommanderActions,
     GatherCommand,
     MoveCommand,
+    ResearchCommand,
     TrainCommand,
 )
-from config import TRAIN_COSTS, ABILITY_DEFS, settings
+from config import TRAIN_COSTS, ABILITY_DEFS, TECH_TREE, settings
 from ai.prompts import format_state_for_llm, SYSTEM_PROMPTS
 
 logger = logging.getLogger(__name__)
@@ -140,6 +141,23 @@ class RandomCommander(BaseCommander):
             elif unit.unit_type == "worker" and unit.state == "gathering":
                 commands.append(AbilityCommand(unit_ids=[unit.id]))
 
+        # Research: pick a random available tech if we can afford it
+        if not team.research_queue:
+            from engine.research import can_research
+            available_techs = [
+                tid for tid in TECH_TREE
+                if can_research(team, tid)
+            ]
+            if available_techs:
+                # Prioritize: tier 1 first, then tier 2, etc.
+                available_techs.sort(key=lambda t: TECH_TREE[t].get("tier", 0))
+                for tid in available_techs:
+                    cost = TECH_TREE[tid]["cost"]
+                    can_afford = all(team.resources.get(r, 0) >= v for r, v in cost.items())
+                    if can_afford:
+                        commands.append(ResearchCommand(tech_id=tid))
+                        break
+
         # Train warriors if we can afford it and have a barracks
         gold = team.resources.get("gold", 0)
         warrior_cost = TRAIN_COSTS["warrior"]["gold"]
@@ -166,8 +184,9 @@ class RandomCommander(BaseCommander):
 class LLMCommander(BaseCommander):
     """Calls an LLM via pydantic-ai with rolling conversation history."""
 
-    def __init__(self, team_name: str) -> None:
+    def __init__(self, team_name: str, model: str | None = None) -> None:
         self.team_name = team_name
+        self.model_name = model or settings.llm_model
         self._agent = self._build_agent()
         self._fallback = RandomCommander(team_name)
         self._history: list = []   # pydantic-ai ModelMessage list (grows unbounded)
@@ -178,11 +197,11 @@ class LLMCommander(BaseCommander):
 
             system_prompt = SYSTEM_PROMPTS.get(self.team_name, SYSTEM_PROMPTS["red"])
             agent = Agent(
-                settings.llm_model,
+                self.model_name,
                 output_type=CommanderActions,
                 system_prompt=system_prompt,
             )
-            logger.info("LLM commander built for team=%s model=%s", self.team_name, settings.llm_model)
+            logger.info("LLM commander built for team=%s model=%s", self.team_name, self.model_name)
             return agent
         except ImportError:
             logger.warning("pydantic-ai not available; LLMCommander will fall back to RandomCommander")

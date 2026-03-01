@@ -36,10 +36,12 @@ manager = GameManager()
 
 def _build_commanders(use_llm: bool) -> dict:
     if use_llm:
-        logger.info("Using LLM commanders (model=%s)", settings.llm_model)
+        red_model = settings.llm_model_red or settings.llm_model
+        blue_model = settings.llm_model_blue or settings.llm_model
+        logger.info("Using LLM commanders (red=%s, blue=%s)", red_model, blue_model)
         return {
-            "red":  LLMCommander("red"),
-            "blue": LLMCommander("blue"),
+            "red":  LLMCommander("red", model=red_model),
+            "blue": LLMCommander("blue", model=blue_model),
         }
     else:
         logger.info("Using random commanders")
@@ -52,10 +54,25 @@ def _build_commanders(use_llm: bool) -> dict:
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 
+def _set_commander_models(use_llm: bool) -> None:
+    """Set commander_model on each team state for frontend display."""
+    if not manager.state:
+        return
+    for team_name, team in manager.state.teams.items():
+        if use_llm:
+            if team_name == "red":
+                team.commander_model = settings.llm_model_red or settings.llm_model
+            else:
+                team.commander_model = settings.llm_model_blue or settings.llm_model
+        else:
+            team.commander_model = "RandomCommander"
+
+
 @app.post("/api/game/start")
 async def start_game(seed: Optional[int] = None, use_llm: bool = True):
     manager.commanders = _build_commanders(use_llm)
     manager.start(seed=seed)
+    _set_commander_models(use_llm)
     return {"status": "started", "seed": seed, "use_llm": use_llm}
 
 
@@ -64,6 +81,7 @@ async def restart_game(seed: Optional[int] = None, use_llm: bool = True):
     manager.stop()
     manager.commanders = _build_commanders(use_llm)
     manager.start(seed=seed)
+    _set_commander_models(use_llm)
     return {"status": "restarted", "seed": seed}
 
 
@@ -115,6 +133,7 @@ async def websocket_endpoint(ws: WebSocket):
                     manager.stop()
                     manager.commanders = _build_commanders(use_llm)
                     manager.start(seed=seed)
+                    _set_commander_models(use_llm)
                     await ws.send_text('{"type":"restarted"}')
 
             except (json.JSONDecodeError, ValueError) as exc:

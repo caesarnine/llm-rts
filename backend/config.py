@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     #   google-gla:gemini-2.5-flash-preview
     #   openai:gpt-4o
     llm_model: str = "google-gla:gemini-3-flash-preview"
+    llm_model_red: str = ""   # per-team override; empty = use llm_model
+    llm_model_blue: str = ""  # per-team override; empty = use llm_model
 
     # API keys — pydantic-ai reads these from the environment automatically.
     # Set whichever key matches your chosen llm_model provider.
@@ -120,10 +122,65 @@ BUILDING_BUILD_TIME["supply_depot"] = 12
 # ── Map events ────────────────────────────────────────────────────────────────
 MAP_EVENT_INTERVAL: tuple[int, int] = (60, 90)   # ticks between random events
 
-# ── Comeback mechanic ─────────────────────────────────────────────────────────
-COMEBACK_BASE_ATTACK: int = 5
-COMEBACK_AURA_RANGE: float = 3.0
-
-# ── Escalation ────────────────────────────────────────────────────────────────
-ESCALATION_START_TICK: int = 300
-ESCALATION_DPS: int = 2
+# ── Tech tree ─────────────────────────────────────────────────────────────────
+TECH_TREE: dict[str, dict] = {
+    # Tier 1 — no prerequisites
+    "iron_weapons": {
+        "name": "Iron Weapons", "tier": 1,
+        "cost": {"gold": 100, "wood": 50, "stone": 0},
+        "research_time": 20, "requires_count": 0, "requires_tier": 0,
+        "effect": {"type": "unit_stat", "unit_types": ["warrior", "scout"], "stat": "attack", "value": 3},
+        "description": "+3 attack for warriors & scouts",
+    },
+    "fletching": {
+        "name": "Fletching", "tier": 1,
+        "cost": {"gold": 75, "wood": 50, "stone": 0},
+        "research_time": 18, "requires_count": 0, "requires_tier": 0,
+        "effect": {"type": "unit_stat", "unit_types": ["archer"], "stat": "attack_range", "value": 1.0},
+        "description": "+1 range for archers",
+    },
+    "reinforced_armor": {
+        "name": "Reinforced Armor", "tier": 1,
+        "cost": {"gold": 100, "wood": 0, "stone": 50},
+        "research_time": 20, "requires_count": 0, "requires_tier": 0,
+        "effect": {"type": "unit_stat", "unit_types": ["warrior", "archer", "scout"], "stat": "defense", "value": 2},
+        "description": "+2 defense for combat units",
+    },
+    "swift_boots": {
+        "name": "Swift Boots", "tier": 1,
+        "cost": {"gold": 75, "wood": 25, "stone": 0},
+        "research_time": 15, "requires_count": 0, "requires_tier": 0,
+        "effect": {"type": "unit_stat", "unit_types": ["worker", "warrior", "archer", "scout"], "stat": "speed", "value": 0.5},
+        "description": "+0.5 speed for all units",
+    },
+    # Tier 2 — requires 1 tier-1 tech
+    "fortification": {
+        "name": "Fortification", "tier": 2,
+        "cost": {"gold": 150, "wood": 0, "stone": 100},
+        "research_time": 30, "requires_count": 1, "requires_tier": 1,
+        "effect": {"type": "building_hp", "value": 100},
+        "description": "+100 max HP for all buildings",
+    },
+    "war_economy": {
+        "name": "War Economy", "tier": 2,
+        "cost": {"gold": 150, "wood": 75, "stone": 0},
+        "research_time": 25, "requires_count": 1, "requires_tier": 1,
+        "effect": {"type": "gather_bonus", "value": 2},
+        "description": "+2 gather rate for workers",
+    },
+    "siege_engineering": {
+        "name": "Siege Engineering", "tier": 2,
+        "cost": {"gold": 200, "wood": 0, "stone": 100},
+        "research_time": 30, "requires_count": 1, "requires_tier": 1,
+        "effect": {"type": "building_damage_bonus", "value": 0.5},
+        "description": "+50% damage vs buildings",
+    },
+    # Tier 3 — requires 2 tier-2 techs
+    "battle_tactics": {
+        "name": "Battle Tactics", "tier": 3,
+        "cost": {"gold": 300, "wood": 100, "stone": 100},
+        "research_time": 40, "requires_count": 2, "requires_tier": 2,
+        "effect": {"type": "ability_cooldown_reduction", "value": 0.5},
+        "description": "Ability cooldowns recharge 50% faster",
+    },
+}

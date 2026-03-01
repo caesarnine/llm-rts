@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from models.game_state import GameState
 from engine.fog_of_war import get_visible_set
+from engine.research import can_research
+from config import TECH_TREE
 
 _TERRAIN_NAMES = {0: "grass", 1: "forest", 2: "mountain", 3: "water"}
 
@@ -21,11 +23,17 @@ _SHARED_SYSTEM_PROMPT = (
     "POPULATION CAP: Base cap 15, +5 per supply depot. Cannot train above cap.\n"
     "CAPTURE POINTS: Neutral map objectives. Move units within radius 2 to capture. Owning one generates gold each tick.\n"
     "MAP EVENTS: Random events spawn (gold caches, supercharge zones, resource refreshes). Move units near them to benefit.\n"
-    "ESCALATION: After tick 300, buildings outside your home quadrant take damage each tick. Push or perish.\n"
-    "COMEBACK: If losing badly, your base damages nearby enemies.\n\n"
+    "TECH TREE: Use 'research' command with tech_id to start research (one at a time). "
+    "Tier 1 (no prereqs): iron_weapons(+3 atk warriors/scouts), fletching(+1 range archers), "
+    "reinforced_armor(+2 def combat units), swift_boots(+0.5 speed all). "
+    "Tier 2 (need 1 tier-1): fortification(+100 building HP), war_economy(+2 gather rate), "
+    "siege_engineering(+50% vs buildings). "
+    "Tier 3 (need 2 tier-2): battle_tactics(ability cooldowns 50% faster). "
+    "Research costs resources and takes time. Effects apply immediately to all existing units/buildings.\n\n"
     "Each decision cycle you receive the current game state and must issue commands. "
     "Units keep executing their last orders between your decisions, so focus on high-level intent. "
-    "Issue commands as structured data. Include a brief summary of your strategy."
+    "Issue commands as structured data. Include a brief 'reasoning' field explaining your strategic thinking, "
+    "and a 'summary' of your strategy."
 )
 
 SYSTEM_PROMPTS = {
@@ -142,6 +150,24 @@ def format_state_for_llm(state: GameState, team_name: str) -> str:
                 f"  {me.event_type} at ({me.position.x:.0f},{me.position.z:.0f}) "
                 f"[{age}/{me.duration} ticks] data={me.data}"
             )
+
+    # Research status
+    lines.append("\nRESEARCH:")
+    if team.researched_techs:
+        names = [TECH_TREE[tid]["name"] for tid in team.researched_techs if tid in TECH_TREE]
+        lines.append(f"  Completed: {', '.join(names)}")
+    if team.research_queue:
+        tid = team.research_queue.get("tech_id", "")
+        ticks_left = team.research_queue.get("ticks_remaining", 0)
+        name = TECH_TREE.get(tid, {}).get("name", tid)
+        lines.append(f"  In progress: {name} ({ticks_left} ticks left)")
+    available = [
+        f"{tid}({TECH_TREE[tid]['name']}: {TECH_TREE[tid]['description']}, cost={TECH_TREE[tid]['cost']})"
+        for tid in TECH_TREE
+        if can_research(team, tid) and tid not in (team.research_queue.get("tech_id") if team.research_queue else "")
+    ]
+    if available:
+        lines.append(f"  Available: {'; '.join(available)}")
 
     lines.append("\nIssue your commands for this turn.")
     return "\n".join(lines)

@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Unit, TeamState } from '../types'
+import { useGameStore } from '../store/gameStore'
 
 const TEAM_COLOR: Record<string, string> = {
   red: '#ef4444',
@@ -107,10 +108,18 @@ function ScoutModel({ color, h }: { color: string; h: number }) {
 function UnitMesh({ unit }: { unit: Unit }) {
   const groupRef = useRef<THREE.Group>(null)
   const ringMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const selectedUnitId = useGameStore((s) => s.selectedUnitId)
+  const setSelectedUnitId = useGameStore((s) => s.setSelectedUnitId)
+  const isSelected = selectedUnitId === unit.id
+
+  const handleClick = useCallback((e: THREE.Event) => {
+    (e as any).stopPropagation?.()
+    setSelectedUnitId(isSelected ? null : unit.id)
+  }, [unit.id, isSelected, setSelectedUnitId])
 
   const h = UNIT_HEIGHT[unit.unit_type] ?? 0.6
   const bodyColor = TEAM_COLOR[unit.team] ?? '#ffffff'
-  const ringColor = STATE_RING_COLOR[unit.state] ?? '#6b7280'
+  const ringColor = isSelected ? '#ffffff' : (STATE_RING_COLOR[unit.state] ?? '#6b7280')
   const hpFrac = unit.hp / unit.max_hp
   const hpColor = hpFrac > 0.6 ? '#22c55e' : hpFrac > 0.3 ? '#f59e0b' : '#ef4444'
   const isStealthed = unit.is_stealthed
@@ -148,15 +157,22 @@ function UnitMesh({ unit }: { unit: Unit }) {
     <group
       ref={groupRef}
       position={[unit.position.x + 0.5, 0, unit.position.z + 0.5]}
+      onClick={handleClick}
     >
+      {/* Invisible click target */}
+      <mesh position={[0, h / 2 + 0.15, 0]} visible={false}>
+        <boxGeometry args={[0.6, h + 0.3, 0.6]} />
+        <meshBasicMaterial />
+      </mesh>
+
       {/* State ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.3, 0]}>
-        <ringGeometry args={[0.3, 0.46, 24]} />
+        <ringGeometry args={[isSelected ? 0.35 : 0.3, isSelected ? 0.52 : 0.46, 24]} />
         <meshBasicMaterial
           ref={ringMatRef}
           color={ringColor}
           transparent
-          opacity={0.75}
+          opacity={isSelected ? 1 : 0.75}
           side={THREE.DoubleSide}
           depthTest={false}
         />

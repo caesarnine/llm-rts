@@ -18,6 +18,7 @@ interface GameStore {
   speed: number
   fogPerspective: 'red' | 'blue' | null
   muted: boolean
+  selectedUnitId: string | null
 
   setGameState: (state: GameState) => void
   setConnected: (v: boolean) => void
@@ -25,6 +26,7 @@ interface GameStore {
   setFogPerspective: (p: 'red' | 'blue' | null) => void
   pruneDeathEffects: () => void
   setMuted: (v: boolean) => void
+  setSelectedUnitId: (id: string | null) => void
 }
 
 let effectCounter = 0
@@ -51,6 +53,7 @@ export const useGameStore = create<GameStore>((set) => ({
   speed: 1,
   fogPerspective: null,
   muted: false,
+  selectedUnitId: null,
 
   setGameState: (state) =>
     set((s) => {
@@ -75,4 +78,5 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
 
   setMuted: (v) => set({ muted: v }),
+  setSelectedUnitId: (id) => set({ selectedUnitId: id }),
 }))

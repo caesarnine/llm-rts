@@ -56,9 +56,25 @@ AnyCommand = Annotated[
 ]
 
 
+class ResearchCommand(BaseModel):
+    """Start researching a technology at your base."""
+    type: Literal["research"] = "research"
+    tech_id: str
+
+
+AnyCommandWithResearch = Annotated[
+    Union[MoveCommand, AttackCommand, GatherCommand, BuildCommand, TrainCommand, AbilityCommand, ResearchCommand],
+    Field(discriminator="type"),
+]
+
+
 class CommanderActions(BaseModel):
     """All commands issued by a commander in one decision cycle."""
-    commands: list[AnyCommand] = Field(default_factory=list)
+    reasoning: str = Field(
+        default="",
+        description="Your strategic analysis: what threats do you see, what's your plan, and WHY are you issuing these specific commands? 2-4 sentences.",
+    )
+    commands: list[AnyCommandWithResearch] = Field(default_factory=list)
     summary: str = Field(
         default="",
         description="1–2 sentence description of your strategy this turn.",

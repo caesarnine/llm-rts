@@ -66,6 +66,15 @@ export interface TeamState {
   buildings: Building[]
   visible_cells: number[][]
   commander_summary: string
+  commander_reasoning: string
+  commander_model: string
+  researched_techs: string[]
+  research_queue: { tech_id?: string; ticks_remaining?: number }
+  stats_units_trained: number
+  stats_units_lost: number
+  stats_resources_gathered: number
+  stats_damage_dealt: number
+  stats_buildings_built: number
 }
 
 export interface GameEvent {

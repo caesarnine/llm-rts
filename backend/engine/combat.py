@@ -18,8 +18,6 @@ from config import (
     TERRAIN_DEFENSE_BONUS,
     TERRAIN_RANGE_BONUS,
     COUNTER_MULTIPLIERS,
-    COMEBACK_BASE_ATTACK,
-    COMEBACK_AURA_RANGE,
 )
 
 
@@ -81,8 +79,21 @@ def _apply_damage(attacker: Unit | Building, target: Unit | Building, state: Gam
         # Shield wall damage reduction
         if isinstance(target, Unit) and target.ability_active == "shield_wall":
             dmg = max(1, int(dmg * 0.5))
+
+        # Siege engineering bonus (vs buildings)
+        if isinstance(target, Building):
+            atk_team = state.teams.get(attacker.team)
+            if atk_team and "siege_engineering" in atk_team.researched_techs:
+                dmg = int(dmg * 1.5)
     else:
         dmg = atk  # tower hits bypass unit defense (simplified)
+
+    # Track damage dealt stat
+    if isinstance(attacker, Unit):
+        atk_team = state.teams.get(attacker.team)
+        if atk_team:
+            atk_team.stats_damage_dealt += dmg
+
     target.hp = max(0, target.hp - dmg)
 
 
@@ -262,36 +273,10 @@ def process_combat(state: GameState) -> None:
                 else:
                     _move_toward(unit, bld.position.x, bld.position.z)
 
-    # ── Comeback aura: losing team's base damages nearby enemies ─────────────
-    strengths: dict[str, float] = {}
-    for tn, t in state.teams.items():
-        s = sum(u.hp for u in t.units if u.state != "dead")
-        s += sum(t.resources.get(r, 0) for r in ("gold", "wood", "stone")) / 8.0
-        s += sum(b.hp * b.build_progress for b in t.buildings) / 4.0
-        strengths[tn] = s
-    for team_name in all_teams:
-        enemy_name = "blue" if team_name == "red" else "red"
-        my_str = strengths.get(team_name, 0)
-        enemy_str = strengths.get(enemy_name, 0)
-        if enemy_str > 0 and my_str < enemy_str * 0.6:
-            base = next((b for b in state.teams[team_name].buildings if b.building_type == "base"), None)
-            if base:
-                for e in state.teams[enemy_name].units:
-                    if e.state == "dead":
-                        continue
-                    d = _dist(base.position.x, base.position.z, e.position.x, e.position.z)
-                    if d <= COMEBACK_AURA_RANGE:
-                        e.hp = max(0, e.hp - COMEBACK_BASE_ATTACK)
-                        if e.hp == 0:
-                            e.state = "dead"
-                            state.events.append(GameEvent(
-                                tick=state.tick, event_type="unit_killed",
-                                message=f"{team_name.capitalize()} base aura destroyed {enemy_name} {e.unit_type}",
-                                data={"killer": base.id, "victim": e.id, "x": e.position.x, "z": e.position.z, "team": e.team},
-                            ))
-
     # ── Remove dead units ────────────────────────────────────────────────────
     for team in state.teams.values():
+        dead_count = sum(1 for u in team.units if u.state == "dead")
+        team.stats_units_lost += dead_count
         team.units = [u for u in team.units if u.state != "dead"]
 
     # ── Remove destroyed buildings ───────────────────────────────────────────

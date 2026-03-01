@@ -11,11 +11,7 @@ import math
 import random
 
 from models.game_state import GameState, GameEvent, MapEvent, Position
-from config import (
-    MAP_EVENT_INTERVAL,
-    ESCALATION_START_TICK,
-    ESCALATION_DPS,
-)
+from config import MAP_EVENT_INTERVAL
 
 
 def _dist(ax: float, az: float, bx: float, bz: float) -> float:
@@ -136,19 +132,3 @@ def process_map_events(state: GameState) -> None:
             to_remove.append(event.id)  # instant
 
     state.active_map_events = [e for e in state.active_map_events if e.id not in to_remove]
-
-    # ── Escalation: damage buildings outside starting quadrant after threshold ──
-    if state.tick >= ESCALATION_START_TICK:
-        mid_x = state.map_width / 2
-        mid_z = state.map_height / 2
-        for team_name, team in state.teams.items():
-            # Red starts bottom-left, Blue starts top-right (by convention)
-            for building in team.buildings:
-                bx, bz = building.position.x, building.position.z
-                in_home = False
-                if team_name == "red" and bx < mid_x and bz > mid_z:
-                    in_home = True
-                elif team_name == "blue" and bx > mid_x and bz < mid_z:
-                    in_home = True
-                if not in_home:
-                    building.hp = max(0, building.hp - ESCALATION_DPS)

@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { PerspectiveCamera, OrbitControls, Stars } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useGameStore } from '../store/gameStore'
 import Terrain from './Terrain'
 import Units from './Units'
@@ -64,12 +65,28 @@ function DayNightCycle({ tick, mapW, mapH }: { tick: number; mapW: number; mapH:
 
 export default function GameScene() {
   const gameState = useGameStore((s) => s.gameState)
+  const controlsRef = useRef<OrbitControlsImpl>(null)
+  const initializedRef = useRef(false)
+  const setSelectedUnitId = useGameStore((s) => s.setSelectedUnitId)
+
+  const handleMissClick = useCallback(() => {
+    setSelectedUnitId(null)
+  }, [setSelectedUnitId])
 
   const mapW = gameState?.map_width ?? 32
   const mapH = gameState?.map_height ?? 32
   const cx = mapW / 2
   const cz = mapH / 2
   const tick = gameState?.tick ?? 0
+
+  // Set initial target once, then let user pan freely
+  useEffect(() => {
+    if (controlsRef.current && !initializedRef.current && gameState) {
+      controlsRef.current.target.set(cx, 0, cz)
+      controlsRef.current.update()
+      initializedRef.current = true
+    }
+  }, [gameState, cx, cz])
 
   return (
     <>
@@ -83,14 +100,19 @@ export default function GameScene() {
       />
 
       <OrbitControls
-        target={[cx, 0, cz]}
+        ref={controlsRef}
         minDistance={8}
         maxDistance={90}
         maxPolarAngle={Math.PI / 2.4}
         minPolarAngle={Math.PI / 8}
         enablePan
-        panSpeed={0.8}
+        panSpeed={1.0}
         zoomSpeed={1.2}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
       />
 
       <Stars radius={80} depth={50} count={2000} factor={3} saturation={0.2} fade speed={0.5} />
@@ -99,6 +121,16 @@ export default function GameScene() {
 
       {gameState ? (
         <>
+          {/* Invisible ground click catcher — deselects units */}
+          <mesh
+            position={[mapW / 2, -0.1, mapH / 2]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            onClick={handleMissClick}
+            visible={false}
+          >
+            <planeGeometry args={[mapW + 10, mapH + 10]} />
+            <meshBasicMaterial />
+          </mesh>
           <Terrain terrain={gameState.terrain} mapWidth={mapW} mapHeight={mapH} />
           <ResourceNodes nodes={gameState.resource_nodes} />
           <CapturePoints nodes={gameState.capture_points} />

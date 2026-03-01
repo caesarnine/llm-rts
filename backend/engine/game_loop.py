@@ -17,6 +17,7 @@ from models.actions import (
     BuildCommand,
     TrainCommand,
     AbilityCommand,
+    ResearchCommand,
 )
 from engine.pathfinding import a_star, is_walkable
 from engine.map_generator import generate_map
@@ -27,6 +28,7 @@ from engine.buildings import process_buildings
 from engine.capture import process_capture
 from engine.abilities import process_abilities
 from engine.map_events import process_map_events
+from engine.research import process_research
 from config import (
     settings,
     BUILDING_COSTS,
@@ -37,6 +39,7 @@ from config import (
     ABILITY_DEFS,
     POPULATION_CAP_BASE,
     POPULATION_PER_DEPOT,
+    TECH_TREE,
 )
 
 if TYPE_CHECKING:
@@ -230,12 +233,37 @@ def _apply_commands(state: GameState, team_name: str, actions: CommanderActions)
                         unit.ability_active = None  # instant, no duration
                         unit.ability_ticks_remaining = 0
 
+            elif isinstance(cmd, ResearchCommand):
+                from engine.research import can_research
+                tech = TECH_TREE.get(cmd.tech_id)
+                if not tech:
+                    continue
+                if not can_research(team, cmd.tech_id):
+                    continue
+                if team.research_queue:
+                    continue  # already researching
+                cost = tech["cost"]
+                can_afford = all(team.resources.get(r, 0) >= v for r, v in cost.items())
+                if not can_afford:
+                    continue
+                for r, v in cost.items():
+                    team.resources[r] -= v
+                team.research_queue = {"tech_id": cmd.tech_id, "ticks_remaining": tech["research_time"]}
+                state.events.append(GameEvent(
+                    tick=state.tick,
+                    event_type="research_started",
+                    message=f"{team_name.capitalize()} started researching {tech['name']}",
+                    data={"team": team_name, "tech_id": cmd.tech_id},
+                ))
+
         except Exception as exc:
             logger.warning("Error applying command %s: %s", cmd, exc)
 
-    # Update commander summary
+    # Update commander summary and reasoning
     if actions.summary:
         team.commander_summary = actions.summary
+    if actions.reasoning:
+        team.commander_reasoning = actions.reasoning
 
 
 def _process_movement(state: GameState) -> None:
@@ -367,6 +395,7 @@ class GameManager:
         process_capture(self.state)
         process_abilities(self.state)
         process_map_events(self.state)
+        process_research(self.state)
         compute_fog_of_war(self.state)
         _check_win_condition(self.state)
 

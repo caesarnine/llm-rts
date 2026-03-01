@@ -20,6 +20,7 @@ from config import (
     UNIT_STATS,
     WORKER_BUILD_RATE,
 )
+from engine.research import get_tech_bonuses
 
 
 BUILD_PROXIMITY = 1.8
@@ -89,6 +90,7 @@ def process_buildings(state: GameState) -> None:
                 site.build_progress = min(1.0, site.build_progress + WORKER_BUILD_RATE)
                 unit.state = "building"
                 if site.build_progress >= 1.0:
+                    team.stats_buildings_built += 1
                     state.events.append(GameEvent(
                         tick=state.tick,
                         event_type="building_complete",
@@ -116,19 +118,23 @@ def process_buildings(state: GameState) -> None:
                 utype = entry["unit_type"]
                 stats = UNIT_STATS[utype]
                 spawn = _spawn_position(building, state)
+                # Apply tech bonuses to newly spawned unit
+                bonuses = get_tech_bonuses(team.researched_techs, utype)
+                hp_val = stats["hp"] + int(bonuses.get("hp", 0))
                 new_unit = Unit(
                     team=team_name,  # type: ignore[arg-type]
                     unit_type=utype,  # type: ignore[arg-type]
                     position=spawn,
-                    hp=stats["hp"],
-                    max_hp=stats["hp"],
-                    attack=stats["attack"],
-                    defense=stats["defense"],
-                    speed=stats["speed"],
-                    vision=stats["vision"],
-                    attack_range=stats["attack_range"],
+                    hp=hp_val,
+                    max_hp=hp_val,
+                    attack=stats["attack"] + int(bonuses.get("attack", 0)),
+                    defense=stats["defense"] + int(bonuses.get("defense", 0)),
+                    speed=stats["speed"] + bonuses.get("speed", 0),
+                    vision=stats["vision"] + bonuses.get("vision", 0),
+                    attack_range=stats["attack_range"] + bonuses.get("attack_range", 0),
                 )
                 team.units.append(new_unit)
+                team.stats_units_trained += 1
                 state.events.append(GameEvent(
                     tick=state.tick,
                     event_type="unit_trained",

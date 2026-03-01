@@ -7,6 +7,7 @@ from .buildings import process_buildings
 from .capture import process_capture
 from .abilities import process_abilities
 from .map_events import process_map_events
+from .research import process_research
 from .game_loop import GameManager
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "process_capture",
     "process_abilities",
     "process_map_events",
+    "process_research",
     "GameManager",
 ]
