@@ -29,6 +29,7 @@ class Unit(BaseModel):
     vision: float
     attack_range: float
     state: Literal["idle", "moving", "attacking", "gathering", "building", "dead"] = "idle"
+    attack_bonus_temp: int = 0
 
     # Commander-set targets
     target_position: Optional[Position] = None

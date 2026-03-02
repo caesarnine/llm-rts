@@ -26,6 +26,7 @@ export interface Unit {
   vision: number
   attack_range: number
   state: UnitState
+  attack_bonus_temp: number
   target_position: Position | null
   target_unit_id: string | null
   path: number[][]

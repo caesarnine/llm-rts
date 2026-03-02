@@ -9,7 +9,6 @@ Each tick:
 from __future__ import annotations
 
 import math
-import random
 from typing import Optional
 
 from models.game_state import GameState, GameEvent, Unit, Building
@@ -19,6 +18,7 @@ from config import (
     TERRAIN_RANGE_BONUS,
     COUNTER_MULTIPLIERS,
 )
+from engine.movement import move_unit_with_pathfinding
 
 
 def _dist(ax: float, az: float, bx: float, bz: float) -> float:
@@ -61,6 +61,7 @@ def _effective_range(unit: Unit, state: GameState) -> float:
 def _apply_damage(attacker: Unit | Building, target: Unit | Building, state: GameState) -> None:
     atk = attacker.attack if hasattr(attacker, "attack") else 0
     if isinstance(attacker, Unit):
+        atk += attacker.attack_bonus_temp
         defense = target.defense if isinstance(target, Unit) else 0
 
         # Terrain defense bonus for target
@@ -95,40 +96,6 @@ def _apply_damage(attacker: Unit | Building, target: Unit | Building, state: Gam
             atk_team.stats_damage_dealt += dmg
 
     target.hp = max(0, target.hp - dmg)
-
-
-def _nearest_enemy_unit(unit: Unit, state: GameState) -> Optional[Unit]:
-    enemy_team_name = "blue" if unit.team == "red" else "red"
-    enemy_team = state.teams[enemy_team_name]
-    best: Optional[Unit] = None
-    best_d = float("inf")
-    for e in enemy_team.units:
-        if e.state == "dead" or e.is_stealthed:
-            continue
-        d = _dist(unit.position.x, unit.position.z, e.position.x, e.position.z)
-        if d < best_d:
-            best_d = d
-            best = e
-    return best
-
-
-def _move_toward(unit: Unit, tx: float, tz: float, dt: float = 1.0) -> None:
-    dx = tx - unit.position.x
-    dz = tz - unit.position.z
-    dist = math.sqrt(dx * dx + dz * dz)
-    if dist < 0.05:
-        unit.position.x = tx
-        unit.position.z = tz
-        return
-    step = unit.speed * dt
-    if step >= dist:
-        unit.position.x = tx
-        unit.position.z = tz
-    else:
-        ratio = step / dist
-        unit.position.x += dx * ratio
-        unit.position.z += dz * ratio
-    unit.state = "moving"
 
 
 def process_combat(state: GameState) -> None:
@@ -173,6 +140,7 @@ def process_combat(state: GameState) -> None:
                         break
 
             if target_unit:
+                unit.path = []
                 d = _dist(unit.position.x, unit.position.z, target_unit.position.x, target_unit.position.z)
                 eff_range = _effective_range(unit, state)
                 if d <= eff_range:
@@ -200,7 +168,7 @@ def process_combat(state: GameState) -> None:
                         unit.target_unit_id = None
                 else:
                     # Move toward target
-                    _move_toward(unit, target_unit.position.x, target_unit.position.z)
+                    move_unit_with_pathfinding(state, unit, target_unit.position.x, target_unit.position.z)
                 continue
 
             # Attack enemy buildings if commanded (target_unit_id maps to a building)
@@ -249,16 +217,23 @@ def process_combat(state: GameState) -> None:
         for unit in state.teams[team_name].units:
             if unit.state == "dead" or unit.state in ("gathering", "building"):
                 continue
+            if unit.attack_cooldown > 0:
+                continue
             if not unit.target_unit_id:
                 continue
             # Check if target_unit_id refers to a building
             bld = _find_building_by_id(state, unit.target_unit_id)
             if bld and bld.team != unit.team:
+                unit.path = []
                 d = _dist(unit.position.x, unit.position.z, bld.position.x, bld.position.z)
-                if d <= unit.attack_range:
+                if d <= _effective_range(unit, state):
                     unit.state = "attacking"
-                    dmg = max(1, unit.attack)
-                    bld.hp = max(0, bld.hp - dmg)
+                    if unit.is_stealthed:
+                        unit.is_stealthed = False
+                        unit.ability_active = None
+                        unit.ability_ticks_remaining = 0
+                    _apply_damage(unit, bld, state)
+                    unit.attack_cooldown = 1
                     if bld.hp == 0:
                         state.events.append(GameEvent(
                             tick=state.tick,
@@ -270,8 +245,9 @@ def process_combat(state: GameState) -> None:
                                 "team": bld.team, "building_type": bld.building_type,
                             },
                         ))
+                        unit.target_unit_id = None
                 else:
-                    _move_toward(unit, bld.position.x, bld.position.z)
+                    move_unit_with_pathfinding(state, unit, bld.position.x, bld.position.z)
 
     # ── Remove dead units ────────────────────────────────────────────────────
     for team in state.teams.values():

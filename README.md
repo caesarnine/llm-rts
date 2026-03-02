@@ -9,7 +9,7 @@ Two LLM-controlled teams compete in a real-time strategy game on an isometric 3D
 ```bash
 cd backend
 
-# Copy env and add your key (optional — random AI works without it)
+# Copy env and add your key
 cp .env.example .env
 # Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
 
@@ -33,8 +33,7 @@ Open `http://localhost:5173`.
 ### Starting a game
 
 1. Open the browser — you'll see the isometric map.
-2. Click **Start (Random AI)** to run with heuristic commanders (no API key needed).
-3. Click **Start (Claude AI)** to run with LLM commanders (requires `ANTHROPIC_API_KEY`).
+2. Click **Start** to run with LLM commanders.
 
 ---
 
@@ -49,7 +48,7 @@ browser ←── WebSocket (JSON) ──→ FastAPI backend
                               └────────┬────────┘
                               ┌────────┴────────┐
                         Red Commander    Blue Commander
-                       (Claude/Random)  (Claude/Random)
+                          (LLM)            (LLM)
 ```
 
 ### Backend (`backend/`)
@@ -67,7 +66,7 @@ browser ←── WebSocket (JSON) ──→ FastAPI backend
 | `engine/buildings.py` | Construction progress, unit training |
 | `engine/fog_of_war.py` | Per-team vision computation |
 | `engine/game_loop.py` | Central tick loop and command dispatch |
-| `ai/commander.py` | `RandomCommander` + `LLMCommander` |
+| `ai/commander.py` | `LLMCommander` |
 | `ai/prompts.py` | State-to-text formatting for LLM |
 
 ### Frontend (`frontend/src/`)
@@ -94,7 +93,7 @@ browser ←── WebSocket (JSON) ──→ FastAPI backend
 - **Units:** worker · warrior · archer · scout
 - **Buildings:** base · barracks · tower · mine
 - **Resources:** gold · wood · stone
-- Commanders issue orders every 10 ticks (~5 seconds at 2 Hz).
+- Commanders issue orders every 30 ticks (~15 seconds at 2 Hz).
 - Towers auto-attack nearby enemy units.
 - Workers auto-gather when assigned to a resource node.
 - Mines auto-harvest the nearest resource node without workers.
@@ -116,6 +115,6 @@ Edit `backend/config.py`:
 **Client → Server:**
 ```json
 { "type": "set_speed", "speed": 2.0 }
-{ "type": "restart", "seed": 42, "use_llm": false }
+{ "type": "restart", "seed": 42 }
 { "type": "ping" }
 ```

@@ -111,13 +111,18 @@ function ControlsSection() {
   const connected = useGameStore((s) => s.connected)
 
   const handleStart = async () => {
-    await fetch('/api/game/start?use_llm=false', { method: 'POST' })
-  }
-  const handleStartLLM = async () => {
-    await fetch('/api/game/start?use_llm=true', { method: 'POST' })
+    await fetch('/api/game/start', { method: 'POST' })
   }
   const handleRestart = async () => {
-    await fetch('/api/game/restart?use_llm=false', { method: 'POST' })
+    await fetch('/api/game/restart', { method: 'POST' })
+  }
+  const handleSpeed = async (nextSpeed: number) => {
+    setSpeed(nextSpeed)
+    try {
+      await fetch(`/api/game/speed?speed=${encodeURIComponent(nextSpeed)}`, { method: 'POST' })
+    } catch (err) {
+      console.warn('Failed to set game speed', err)
+    }
   }
 
   return (
@@ -126,14 +131,9 @@ function ControlsSection() {
       pointerEvents: 'auto',
     }}>
       {(!phase || phase === 'starting' || phase === 'finished') && connected && (
-        <>
-          <button onClick={handleStart} style={btnStyle('#374151')}>
-            Start (Random)
-          </button>
-          <button onClick={handleStartLLM} style={btnStyle('#1e40af')}>
-            Start (LLM)
-          </button>
-        </>
+        <button onClick={handleStart} style={btnStyle('#1e40af')}>
+          Start
+        </button>
       )}
 
       {phase === 'running' && (
@@ -141,7 +141,7 @@ function ControlsSection() {
           {SPEEDS.map((s) => (
             <button
               key={s}
-              onClick={() => setSpeed(s)}
+              onClick={() => handleSpeed(s)}
               style={btnStyle(speed === s ? '#4b5563' : '#1f2937')}
             >
               {s === 0 ? '⏸' : `${s}×`}

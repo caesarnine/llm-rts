@@ -349,6 +349,10 @@ class GameManager:
 
     async def _tick_loop(self) -> None:
         while self.state and self.state.phase == "running":
+            if self.speed <= 0:
+                await asyncio.sleep(0.1)
+                continue
+
             t0 = asyncio.get_event_loop().time()
 
             await self._process_tick()
@@ -370,7 +374,7 @@ class GameManager:
                 # commands are now in _pending_commands; applied on next _process_tick
 
             elapsed = asyncio.get_event_loop().time() - t0
-            tick_duration = 1.0 / (settings.tick_rate * max(0.1, self.speed))
+            tick_duration = 1.0 / (settings.tick_rate * self.speed)
             sleep_time = tick_duration - elapsed
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)

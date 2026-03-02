@@ -10,44 +10,30 @@ Training:
 from __future__ import annotations
 
 import math
-import uuid
 from typing import Optional
 
 from models.game_state import Building, GameEvent, GameState, Position, Unit
 from config import (
-    BUILDING_STATS,
-    TRAIN_TIME,
+    BUILDING_BUILD_TIME,
     UNIT_STATS,
     WORKER_BUILD_RATE,
 )
+from engine.movement import move_unit_with_pathfinding
 from engine.research import get_tech_bonuses
 
 
 BUILD_PROXIMITY = 1.8
 
 
-def _short_id() -> str:
-    return str(uuid.uuid4())[:8]
-
-
 def _dist(ax: float, az: float, bx: float, bz: float) -> float:
     return math.sqrt((ax - bx) ** 2 + (az - bz) ** 2)
 
 
-def _move_toward(unit: Unit, tx: float, tz: float) -> None:
-    dx = tx - unit.position.x
-    dz = tz - unit.position.z
-    dist = math.sqrt(dx * dx + dz * dz)
-    if dist < 0.05:
-        unit.position.x, unit.position.z = tx, tz
-        return
-    step = unit.speed
-    if step >= dist:
-        unit.position.x, unit.position.z = tx, tz
-    else:
-        unit.position.x += dx / dist * step
-        unit.position.z += dz / dist * step
-    unit.state = "moving"
+def _build_progress_per_tick(building_type: str) -> float:
+    base_time = max(1, BUILDING_BUILD_TIME.get(building_type, 20))
+    base_increment = 1.0 / base_time
+    # Keep WORKER_BUILD_RATE as a global tuning multiplier (0.05 = neutral).
+    return base_increment * (WORKER_BUILD_RATE / 0.05)
 
 
 def _find_building_by_id(state: GameState, bid: str) -> Optional[Building]:
@@ -87,7 +73,10 @@ def process_buildings(state: GameState) -> None:
 
             d = _dist(unit.position.x, unit.position.z, site.position.x, site.position.z)
             if d <= BUILD_PROXIMITY:
-                site.build_progress = min(1.0, site.build_progress + WORKER_BUILD_RATE)
+                site.build_progress = min(
+                    1.0,
+                    site.build_progress + _build_progress_per_tick(site.building_type),
+                )
                 unit.state = "building"
                 if site.build_progress >= 1.0:
                     team.stats_buildings_built += 1
@@ -98,7 +87,7 @@ def process_buildings(state: GameState) -> None:
                         data={"building_id": site.id, "team": team_name},
                     ))
             else:
-                _move_toward(unit, site.position.x, site.position.z)
+                move_unit_with_pathfinding(state, unit, site.position.x, site.position.z)
 
     # ── Unit training ─────────────────────────────────────────────────────────
     for team_name, team in state.teams.items():

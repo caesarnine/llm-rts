@@ -32,8 +32,8 @@ class LLMCommentator:
             )
             logger.info("LLM commentator built")
             return agent
-        except ImportError:
-            logger.warning("pydantic-ai not available; commentary disabled")
+        except Exception as exc:
+            logger.warning("Commentator disabled (%s)", exc)
             return None
 
     async def get_commentary(

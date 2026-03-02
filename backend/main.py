@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -11,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from engine.game_loop import GameManager
-from ai.commander import LLMCommander, RandomCommander
+from ai.commander import LLMCommander
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,55 +33,51 @@ app.add_middleware(
 manager = GameManager()
 
 
-def _build_commanders(use_llm: bool) -> dict:
-    if use_llm:
-        red_model = settings.llm_model_red or settings.llm_model
-        blue_model = settings.llm_model_blue or settings.llm_model
-        logger.info("Using LLM commanders (red=%s, blue=%s)", red_model, blue_model)
-        return {
-            "red":  LLMCommander("red", model=red_model),
-            "blue": LLMCommander("blue", model=blue_model),
-        }
-    else:
-        logger.info("Using random commanders")
-        return {
-            "red":  RandomCommander("red"),
-            "blue": RandomCommander("blue"),
-        }
+def _build_commanders() -> dict:
+    red_model = settings.llm_model_red or settings.llm_model
+    blue_model = settings.llm_model_blue or settings.llm_model
+    logger.info("Using LLM commanders (red=%s, blue=%s)", red_model, blue_model)
+    return {
+        "red": LLMCommander("red", model=red_model),
+        "blue": LLMCommander("blue", model=blue_model),
+    }
 
 
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 
-def _set_commander_models(use_llm: bool) -> None:
+def _set_commander_models() -> None:
     """Set commander_model on each team state for frontend display."""
     if not manager.state:
         return
     for team_name, team in manager.state.teams.items():
-        if use_llm:
-            if team_name == "red":
-                team.commander_model = settings.llm_model_red or settings.llm_model
-            else:
-                team.commander_model = settings.llm_model_blue or settings.llm_model
+        if team_name == "red":
+            team.commander_model = settings.llm_model_red or settings.llm_model
         else:
-            team.commander_model = "RandomCommander"
+            team.commander_model = settings.llm_model_blue or settings.llm_model
 
 
 @app.post("/api/game/start")
-async def start_game(seed: Optional[int] = None, use_llm: bool = True):
-    manager.commanders = _build_commanders(use_llm)
+async def start_game(seed: Optional[int] = None):
+    manager.commanders = _build_commanders()
     manager.start(seed=seed)
-    _set_commander_models(use_llm)
-    return {"status": "started", "seed": seed, "use_llm": use_llm}
+    _set_commander_models()
+    return {"status": "started", "seed": seed}
 
 
 @app.post("/api/game/restart")
-async def restart_game(seed: Optional[int] = None, use_llm: bool = True):
+async def restart_game(seed: Optional[int] = None):
     manager.stop()
-    manager.commanders = _build_commanders(use_llm)
+    manager.commanders = _build_commanders()
     manager.start(seed=seed)
-    _set_commander_models(use_llm)
+    _set_commander_models()
     return {"status": "restarted", "seed": seed}
+
+
+@app.post("/api/game/speed")
+async def set_game_speed(speed: float = 1.0):
+    manager.set_speed(speed)
+    return {"status": "ok", "speed": manager.speed}
 
 
 @app.get("/api/game/state")
@@ -129,11 +124,10 @@ async def websocket_endpoint(ws: WebSocket):
 
                 elif mtype == "restart":
                     seed = msg.get("seed")
-                    use_llm = msg.get("use_llm", True)
                     manager.stop()
-                    manager.commanders = _build_commanders(use_llm)
+                    manager.commanders = _build_commanders()
                     manager.start(seed=seed)
-                    _set_commander_models(use_llm)
+                    _set_commander_models()
                     await ws.send_text('{"type":"restarted"}')
 
             except (json.JSONDecodeError, ValueError) as exc:

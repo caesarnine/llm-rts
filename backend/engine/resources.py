@@ -8,8 +8,9 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-from models.game_state import GameState, GameEvent, ResourceNode, Unit
+from models.game_state import GameState, ResourceNode
 from config import GATHER_RATE, MINE_GATHER_RATE, TECH_TREE
+from engine.movement import move_unit_with_pathfinding
 
 
 GATHER_PROXIMITY = 1.8  # distance at which a worker can gather
@@ -21,22 +22,6 @@ def _dist(ax: float, az: float, bx: float, bz: float) -> float:
 
 def _find_node(state: GameState, nid: str) -> Optional[ResourceNode]:
     return next((n for n in state.resource_nodes if n.id == nid), None)
-
-
-def _move_toward(unit: Unit, tx: float, tz: float) -> None:
-    dx = tx - unit.position.x
-    dz = tz - unit.position.z
-    dist = math.sqrt(dx * dx + dz * dz)
-    if dist < 0.05:
-        unit.position.x, unit.position.z = tx, tz
-        return
-    step = unit.speed
-    if step >= dist:
-        unit.position.x, unit.position.z = tx, tz
-    else:
-        unit.position.x += dx / dist * step
-        unit.position.z += dz / dist * step
-    unit.state = "moving"
 
 
 def process_resources(state: GameState) -> None:
@@ -70,7 +55,7 @@ def process_resources(state: GameState) -> None:
                 team.stats_resources_gathered += amount
                 unit.state = "gathering"
             else:
-                _move_toward(unit, node.position.x, node.position.z)
+                move_unit_with_pathfinding(state, unit, node.position.x, node.position.z)
 
     # ── Mine building auto-harvest ────────────────────────────────────────────
     for team_name, team in state.teams.items():

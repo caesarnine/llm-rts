@@ -45,7 +45,7 @@ export function useSoundEffects() {
         case 'building_complete':
           playBuildingComplete()
           break
-        case 'capture_taken':
+        case 'capture_point_taken':
           playCaptureTaken()
           break
         case 'unit_trained':

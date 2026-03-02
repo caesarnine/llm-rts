@@ -78,7 +78,7 @@ def _process_gold_cache(event: MapEvent, state: GameState) -> bool:
 
 
 def _process_supercharge(event: MapEvent, state: GameState) -> None:
-    """Boost attack of units near the supercharge zone."""
+    """Apply temporary attack bonus to units near the supercharge zone."""
     bonus = event.data.get("attack_bonus", 5)
     for team in state.teams.values():
         for unit in team.units:
@@ -86,12 +86,7 @@ def _process_supercharge(event: MapEvent, state: GameState) -> None:
                 continue
             d = _dist(unit.position.x, unit.position.z, event.position.x, event.position.z)
             if d <= 2.5:
-                # Temporary attack boost applied via direct stat (resets when event expires)
-                unit.attack = getattr(unit, '_base_attack', unit.attack)
-                if not hasattr(unit, '_base_attack'):
-                    object.__setattr__(unit, '_base_attack', unit.attack)
-                # Don't stack — just set to base + bonus
-                unit.attack = object.__getattribute__(unit, '_base_attack') + bonus
+                unit.attack_bonus_temp += int(bonus)
 
 
 def _process_resource_refresh(event: MapEvent, state: GameState) -> None:
@@ -105,6 +100,11 @@ def _process_resource_refresh(event: MapEvent, state: GameState) -> None:
 
 def process_map_events(state: GameState) -> None:
     """Spawn and process map events each tick."""
+    # Temporary bonuses are recomputed from active events each tick.
+    for team in state.teams.values():
+        for unit in team.units:
+            unit.attack_bonus_temp = 0
+
     # Schedule next event
     if state.next_map_event_tick == 0:
         state.next_map_event_tick = state.tick + random.randint(*MAP_EVENT_INTERVAL)
