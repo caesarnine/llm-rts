@@ -1,6 +1,6 @@
 # LLM Battle Arena RTS
 
-Two LLM-controlled teams compete in a real-time strategy game on an isometric 3D map. Watch Claude play against itself in the browser.
+Two LLM-controlled teams compete in a real-time strategy game on an isometric 3D map.
 
 ## Quick Start
 
