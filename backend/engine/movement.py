@@ -20,17 +20,51 @@ def _nearest_walkable_cell(
     tx: int,
     tz: int,
     max_radius: int = 2,
+    blocked_cells: Optional[set[tuple[int, int]]] = None,
 ) -> Optional[tuple[int, int]]:
-    if is_walkable(terrain, tx, tz):
+    blocked = blocked_cells or set()
+    if is_walkable(terrain, tx, tz) and (tx, tz) not in blocked:
         return (tx, tz)
 
     for radius in range(1, max_radius + 1):
         for ox, oz in _NEIGHBORS:
             nx = tx + ox * radius
             nz = tz + oz * radius
-            if is_walkable(terrain, nx, nz):
+            if is_walkable(terrain, nx, nz) and (nx, nz) not in blocked:
                 return (nx, nz)
     return None
+
+
+def occupied_unit_cells(
+    state: GameState,
+    *,
+    exclude_unit_id: Optional[str] = None,
+) -> set[tuple[int, int]]:
+    occupied: set[tuple[int, int]] = set()
+    for team in state.teams.values():
+        for other in team.units:
+            if other.state == "dead":
+                continue
+            if exclude_unit_id and other.id == exclude_unit_id:
+                continue
+            occupied.add((int(other.position.x), int(other.position.z)))
+    return occupied
+
+
+def _terrain_with_unit_blocks(
+    terrain: list[list[int]],
+    blocked_cells: set[tuple[int, int]],
+) -> list[list[int]]:
+    if not blocked_cells:
+        return terrain
+
+    rows = len(terrain)
+    cols = len(terrain[0]) if rows else 0
+    blocked_terrain = [row[:] for row in terrain]
+    for cx, cz in blocked_cells:
+        if 0 <= cz < rows and 0 <= cx < cols and blocked_terrain[cz][cx] not in (2, 3):
+            blocked_terrain[cz][cx] = 2
+    return blocked_terrain
 
 
 def _step_toward(unit: Unit, tx: float, tz: float, dt: float = 1.0) -> bool:
@@ -72,16 +106,23 @@ def move_unit_with_pathfinding(
 
     terrain = state.terrain
     start = (int(unit.position.x), int(unit.position.z))
-    target = _nearest_walkable_cell(terrain, int(tx), int(tz))
+    occupied = occupied_unit_cells(state, exclude_unit_id=unit.id)
+    target = _nearest_walkable_cell(terrain, int(tx), int(tz), blocked_cells=occupied)
     if target is None:
         return False
 
-    if start == target:
-        return _step_toward(unit, tx, tz, dt)
+    blocked_for_path = set(occupied)
+    blocked_for_path.discard(target)
+    terrain_for_path = _terrain_with_unit_blocks(terrain, blocked_for_path)
 
-    path = a_star(terrain, start, target)
+    if start == target:
+        return False
+
+    path = a_star(terrain_for_path, start, target)
     if not path:
         return False
 
     next_x, next_z = path[0]
+    if (next_x, next_z) in occupied:
+        return False
     return _step_toward(unit, float(next_x), float(next_z), dt)

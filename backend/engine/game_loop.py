@@ -22,6 +22,7 @@ from models.actions import (
 from engine.pathfinding import a_star, is_walkable
 from engine.map_generator import generate_map
 from engine.fog_of_war import compute_fog_of_war
+from engine.movement import occupied_unit_cells
 from engine.combat import process_combat
 from engine.resources import process_resources
 from engine.buildings import process_buildings
@@ -268,6 +269,8 @@ def _apply_commands(state: GameState, team_name: str, actions: CommanderActions)
 
 def _process_movement(state: GameState) -> None:
     """Move units along their computed paths each tick."""
+    occupied = occupied_unit_cells(state)
+
     for team in state.teams.values():
         for unit in team.units:
             if unit.state == "dead":
@@ -283,8 +286,17 @@ def _process_movement(state: GameState) -> None:
                     unit.target_position = None
                 continue
 
+            current_cell = (int(unit.position.x), int(unit.position.z))
+            occupied.discard(current_cell)
+
             next_wp = unit.path[0]
             tx, tz = float(next_wp[0]), float(next_wp[1])
+            next_cell = (int(tx), int(tz))
+            if next_cell in occupied:
+                unit.state = "moving"
+                occupied.add(current_cell)
+                continue
+
             dx = tx - unit.position.x
             dz = tz - unit.position.z
             dist = math.sqrt(dx * dx + dz * dz)
@@ -303,6 +315,8 @@ def _process_movement(state: GameState) -> None:
                 unit.position.x += dx / dist * step
                 unit.position.z += dz / dist * step
                 unit.state = "moving"
+
+            occupied.add((int(unit.position.x), int(unit.position.z)))
 
 
 class GameManager:
@@ -348,6 +362,9 @@ class GameManager:
     # ── Tick loop ─────────────────────────────────────────────────────────────
 
     async def _tick_loop(self) -> None:
+        # Prime opening orders so units act from the first simulated tick.
+        await self._request_llm_cycle(include_commentary=False)
+
         while self.state and self.state.phase == "running":
             if self.speed <= 0:
                 await asyncio.sleep(0.1)
@@ -362,15 +379,7 @@ class GameManager:
 
             # Every N ticks: pause the game and await both commanders + commentator concurrently
             if self.state.tick % settings.llm_command_interval == 0:
-                self.state.llm_thinking = True
-                await self._broadcast()   # let frontend show the "thinking" indicator
-
-                coros = [self._request_orders(t) for t in self.commanders]
-                coros.append(self._request_commentary())
-                await asyncio.gather(*coros, return_exceptions=True)
-
-                self.state.llm_thinking = False
-                self._recent_events.clear()
+                await self._request_llm_cycle(include_commentary=True)
                 # commands are now in _pending_commands; applied on next _process_tick
 
             elapsed = asyncio.get_event_loop().time() - t0
@@ -410,6 +419,24 @@ class GameManager:
 
         # Accumulate events for commentator
         self._recent_events.extend(self.state.events)
+
+    async def _request_llm_cycle(self, *, include_commentary: bool) -> None:
+        if not self.state:
+            return
+
+        coros = [self._request_orders(t) for t in self.commanders]
+        if include_commentary:
+            coros.append(self._request_commentary())
+        if not coros:
+            return
+
+        self.state.llm_thinking = True
+        await self._broadcast()   # let frontend show the "thinking" indicator
+        try:
+            await asyncio.gather(*coros, return_exceptions=True)
+        finally:
+            self.state.llm_thinking = False
+            self._recent_events.clear()
 
     async def _request_orders(self, team_name: str) -> None:
         if not self.state:

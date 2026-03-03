@@ -18,7 +18,7 @@ from config import (
     UNIT_STATS,
     WORKER_BUILD_RATE,
 )
-from engine.movement import move_unit_with_pathfinding
+from engine.movement import move_unit_with_pathfinding, occupied_unit_cells
 from engine.research import get_tech_bonuses
 
 
@@ -46,14 +46,36 @@ def _find_building_by_id(state: GameState, bid: str) -> Optional[Building]:
 
 def _spawn_position(building: Building, state: GameState) -> Position:
     """Find an open cell adjacent to the building to spawn a unit."""
-    bx, bz = building.position.x, building.position.z
-    for dx, dz in [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, 1)]:
+    bx, bz = int(building.position.x), int(building.position.z)
+
+    occupied = occupied_unit_cells(state)
+    for team in state.teams.values():
+        for other in team.buildings:
+            if other.hp > 0:
+                occupied.add((int(other.position.x), int(other.position.z)))
+
+    spawn_offsets = [
+        (1, 0), (0, 1), (-1, 0), (0, -1),
+        (1, 1), (-1, 1), (1, -1), (-1, -1),
+        (2, 0), (0, 2), (-2, 0), (0, -2),
+    ]
+
+    for dx, dz in spawn_offsets:
         nx, nz = bx + dx, bz + dz
-        if 0 <= int(nx) < state.map_width and 0 <= int(nz) < state.map_height:
-            t = state.terrain[int(nz)][int(nx)]
-            if t not in (2, 3):
-                return Position(x=nx, z=nz)
-    return Position(x=bx + 1, z=bz)
+        if not (0 <= nx < state.map_width and 0 <= nz < state.map_height):
+            continue
+        if state.terrain[nz][nx] in (2, 3):
+            continue
+        if (nx, nz) in occupied:
+            continue
+        return Position(x=float(nx), z=float(nz))
+
+    # Fallback: preserve previous behavior if no free nearby cell exists.
+    for dx, dz in spawn_offsets:
+        nx, nz = bx + dx, bz + dz
+        if 0 <= nx < state.map_width and 0 <= nz < state.map_height and state.terrain[nz][nx] not in (2, 3):
+            return Position(x=float(nx), z=float(nz))
+    return Position(x=float(bx + 1), z=float(bz))
 
 
 def process_buildings(state: GameState) -> None:
