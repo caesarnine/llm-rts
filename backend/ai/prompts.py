@@ -22,7 +22,6 @@ _SHARED_SYSTEM_PROMPT = (
     "BUILDINGS: base(HQ — losing it loses), barracks(trains units), tower(auto-attacks), mine(auto-gathers), supply_depot(+5 pop cap).\n"
     "POPULATION CAP: Base cap 15, +5 per supply depot. Cannot train above cap.\n"
     "CAPTURE POINTS: Neutral map objectives. Move units within radius 2 to capture. Owning one generates gold each tick.\n"
-    "MAP EVENTS: Random events spawn (gold caches, supercharge zones, resource refreshes). Move units near them to benefit.\n"
     "TECH TREE: Use 'research' command with tech_id to start research (one at a time). "
     "Tier 1 (no prereqs): iron_weapons(+3 atk warriors/scouts), fletching(+1 range archers), "
     "reinforced_armor(+2 def combat units), swift_boots(+0.5 speed all). "
@@ -139,16 +138,6 @@ def format_state_for_llm(state: GameState, team_name: str) -> str:
             lines.append(
                 f"  {cp.id} pos=({cp.position.x:.0f},{cp.position.z:.0f}): {owner_str} "
                 f"[Red {red_pct}% / Blue {blue_pct}%] +{cp.gold_per_tick}g/tick if owned"
-            )
-
-    # Active map events
-    if state.active_map_events:
-        lines.append(f"\nACTIVE MAP EVENTS ({len(state.active_map_events)}):")
-        for me in state.active_map_events:
-            age = state.tick - me.tick_started
-            lines.append(
-                f"  {me.event_type} at ({me.position.x:.0f},{me.position.z:.0f}) "
-                f"[{age}/{me.duration} ticks] data={me.data}"
             )
 
     # Research status
