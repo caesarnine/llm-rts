@@ -44,6 +44,8 @@ class Unit(BaseModel):
     # Internal engine state (not shown to LLM)
     path: list[list[float]] = Field(default_factory=list)   # waypoints [[x,z], ...]
     gather_target_id: Optional[str] = None
+    carried_resource_type: Optional[Literal["gold", "wood", "stone"]] = None
+    carried_amount: int = 0
     build_target_id: Optional[str] = None
     attack_cooldown: int = 0   # ticks until next attack
 
@@ -51,7 +53,7 @@ class Unit(BaseModel):
 class Building(BaseModel):
     id: str = Field(default_factory=_short_id)
     team: Literal["red", "blue"]
-    building_type: Literal["base", "barracks", "tower", "mine", "supply_depot"]
+    building_type: Literal["base", "barracks", "tower", "supply_depot"]
     position: Position
     hp: int
     max_hp: int
@@ -59,9 +61,6 @@ class Building(BaseModel):
 
     # Barracks training queue: each entry {"unit_type": str, "ticks_remaining": int}
     training_queue: list[dict] = Field(default_factory=list)
-
-    # Mine auto-gather: links to the nearest resource node
-    linked_resource_id: Optional[str] = None
 
 
 class ResourceNode(BaseModel):

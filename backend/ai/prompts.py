@@ -19,8 +19,9 @@ _SHARED_SYSTEM_PROMPT = (
     "archer→volley(AoE 2.5 radius, 10 damage, needs target position), "
     "scout→stealth(invisible 12 ticks, breaks on attack), "
     "worker→sprint(2x speed 6 ticks). Each ability has a cooldown.\n\n"
-    "BUILDINGS: base(HQ — losing it loses), barracks(trains units), tower(auto-attacks), mine(auto-gathers), supply_depot(+5 pop cap).\n"
+    "BUILDINGS: base(HQ — losing it loses), barracks(trains units), tower(auto-attacks), supply_depot(+5 pop cap).\n"
     "POPULATION CAP: Base cap 15, +5 per supply depot. Cannot train above cap.\n"
+    "ECONOMY: Workers carry gathered resources as cargo. Resources become usable only after workers return and deposit at your base.\n"
     "CAPTURE POINTS: Neutral map objectives. Move units within radius 2 to capture. Owning one generates gold each tick.\n"
     "TECH TREE: Use 'research' command with tech_id to start research (one at a time). "
     "Tier 1 (no prereqs): iron_weapons(+3 atk warriors/scouts), fletching(+1 range archers), "
@@ -72,6 +73,8 @@ def format_state_for_llm(state: GameState, team_name: str) -> str:
             extra = f" [building {u.build_target_id}]"
         elif u.state == "attacking":
             extra = f" [attacking {u.target_unit_id}]"
+        if u.carried_amount > 0 and u.carried_resource_type:
+            extra += f" [carrying {u.carried_amount} {u.carried_resource_type}]"
         ability_str = ""
         if u.ability_active:
             ability_str = f" ability={u.ability_active}({u.ability_ticks_remaining}t)"

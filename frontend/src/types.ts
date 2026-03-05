@@ -9,7 +9,7 @@ export interface Position {
 export type UnitType = 'worker' | 'warrior' | 'archer' | 'scout'
 export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering' | 'building' | 'dead'
 export type Team = 'red' | 'blue'
-export type BuildingType = 'base' | 'barracks' | 'tower' | 'mine' | 'supply_depot'
+export type BuildingType = 'base' | 'barracks' | 'tower' | 'supply_depot'
 export type ResourceType = 'gold' | 'wood' | 'stone'
 export type GamePhase = 'starting' | 'running' | 'finished'
 
@@ -31,6 +31,8 @@ export interface Unit {
   target_unit_id: string | null
   path: number[][]
   gather_target_id: string | null
+  carried_resource_type: ResourceType | null
+  carried_amount: number
   build_target_id: string | null
   attack_cooldown: number
   // Ability fields
@@ -49,7 +51,6 @@ export interface Building {
   max_hp: number
   build_progress: number
   training_queue: Array<{ unit_type: UnitType; ticks_remaining: number }>
-  linked_resource_id: string | null
 }
 
 export interface ResourceNode {

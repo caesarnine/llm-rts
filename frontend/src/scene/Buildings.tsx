@@ -18,7 +18,6 @@ const BUILDING_DIMS: Record<string, [number, number, number]> = {
   base: [1.4, 1.2, 1.4],
   barracks: [1.2, 0.9, 1.2],
   tower: [0.6, 1.8, 0.6],
-  mine: [1.0, 0.6, 1.0],
   supply_depot: [0.9, 0.7, 0.9],
 }
 
@@ -156,57 +155,6 @@ function BaseMesh({ building, color }: { building: Building; color: string }) {
   )
 }
 
-function MineMesh({ building, color }: { building: Building; color: string }) {
-  const [bw, bh, bd] = BUILDING_DIMS.mine
-  const alpha = building.build_progress
-  const hpFrac = building.hp / building.max_hp
-
-  return (
-    <>
-      <mesh position={[0, (bh * alpha) / 2 + 0.15, 0]} castShadow receiveShadow>
-        <boxGeometry args={[bw, bh * alpha + 0.01, bd]} />
-        <meshStandardMaterial
-          color={color}
-          roughness={0.7}
-          transparent={alpha < 1}
-          opacity={0.5 + alpha * 0.5}
-          emissive="#ff2200"
-          emissiveIntensity={alpha >= 1 ? Math.max(0, (1 - hpFrac) * 0.6) : 0}
-        />
-      </mesh>
-      {/* Ore particles floating above when active */}
-      {alpha >= 1 && building.linked_resource_id && (
-        <>
-          {[0, 1, 2].map((i) => (
-            <FloatingOre key={i} index={i} y={bh + 0.3} />
-          ))}
-        </>
-      )}
-    </>
-  )
-}
-
-function FloatingOre({ index, y }: { index: number; y: number }) {
-  const meshRef = useRef<THREE.Mesh>(null)
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      const t = state.clock.elapsedTime + index * 2.1
-      meshRef.current.position.x = Math.cos(t * 1.5) * 0.25
-      meshRef.current.position.y = y + Math.sin(t * 2) * 0.15
-      meshRef.current.position.z = Math.sin(t * 1.5) * 0.25
-      meshRef.current.rotation.y = t * 3
-    }
-  })
-
-  return (
-    <mesh ref={meshRef}>
-      <octahedronGeometry args={[0.06, 0]} />
-      <meshStandardMaterial color="#c4a56a" emissive="#aa8844" emissiveIntensity={0.5} />
-    </mesh>
-  )
-}
-
 function SupplyDepotMesh({ building, color }: { building: Building; color: string }) {
   const [bw, bh, bd] = BUILDING_DIMS.supply_depot
   const alpha = building.build_progress
@@ -250,7 +198,6 @@ function BuildingMesh({ building }: { building: Building }) {
       {building.building_type === 'tower' && <TowerMesh building={building} color={color} />}
       {building.building_type === 'barracks' && <BarracksMesh building={building} color={color} />}
       {building.building_type === 'base' && <BaseMesh building={building} color={color} />}
-      {building.building_type === 'mine' && <MineMesh building={building} color={color} />}
       {building.building_type === 'supply_depot' && <SupplyDepotMesh building={building} color={color} />}
 
       {/* HP bar */}

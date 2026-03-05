@@ -31,7 +31,7 @@ class GatherCommand(BaseModel):
 class BuildCommand(BaseModel):
     """Order workers to construct a building at a position."""
     type: Literal["build"] = "build"
-    building_type: Literal["barracks", "tower", "mine", "supply_depot"]
+    building_type: Literal["barracks", "tower", "supply_depot"]
     position: Position
     worker_ids: list[str]
 

@@ -58,19 +58,16 @@ BUILDING_STATS: dict[str, dict] = {
     "base":     {"hp": 1000, "vision": 8,  "attack": 0,  "attack_range": 0.0},
     "barracks": {"hp": 300,  "vision": 5,  "attack": 0,  "attack_range": 0.0},
     "tower":    {"hp": 200,  "vision": 8,  "attack": 10, "attack_range": 6.0},
-    "mine":     {"hp": 150,  "vision": 4,  "attack": 0,  "attack_range": 0.0},
 }
 
 BUILDING_COSTS: dict[str, dict[str, int]] = {
     "barracks": {"gold": 100, "wood": 50,  "stone": 0},
     "tower":    {"gold": 50,  "wood": 0,   "stone": 50},
-    "mine":     {"gold": 75,  "wood": 25,  "stone": 0},
 }
 
 BUILDING_BUILD_TIME: dict[str, int] = {  # ticks
     "barracks": 20,
     "tower":    15,
-    "mine":     10,
 }
 
 TRAIN_COSTS: dict[str, dict[str, int]] = {
@@ -88,7 +85,7 @@ TRAIN_TIME: dict[str, int] = {  # ticks
 }
 
 GATHER_RATE: int = 5          # resources per tick per worker
-MINE_GATHER_RATE: int = 3     # auto-gather per tick from a completed mine building
+WORKER_CARGO_CAP: int = 25    # max carried resources before returning to base
 WORKER_BUILD_RATE: float = 0.05   # build_progress added per worker per tick
 
 # ── Terrain bonuses ───────────────────────────────────────────────────────────

@@ -62,7 +62,7 @@ browser ←── WebSocket (JSON) ──→ FastAPI backend
 | `engine/map_generator.py` | Symmetric procedural map generation |
 | `engine/pathfinding.py` | A* on the terrain grid |
 | `engine/combat.py` | Damage, auto-attack, tower defense |
-| `engine/resources.py` | Worker gathering, mine auto-harvest |
+| `engine/resources.py` | Worker gather/carry/deposit economy |
 | `engine/buildings.py` | Construction progress, unit training |
 | `engine/fog_of_war.py` | Per-team vision computation |
 | `engine/game_loop.py` | Central tick loop and command dispatch |
@@ -91,12 +91,12 @@ browser ←── WebSocket (JSON) ──→ FastAPI backend
 
 - **Goal:** Destroy the enemy base.
 - **Units:** worker · warrior · archer · scout
-- **Buildings:** base · barracks · tower · mine
+- **Buildings:** base · barracks · tower · supply_depot
 - **Resources:** gold · wood · stone
 - Commanders issue orders every 30 ticks (~15 seconds at 2 Hz).
 - Towers auto-attack nearby enemy units.
-- Workers auto-gather when assigned to a resource node.
-- Mines auto-harvest the nearest resource node without workers.
+- Workers gather into cargo when assigned to a resource node.
+- Gathered resources become usable only after workers deposit them at their base.
 
 ## Adjusting Game Balance
 
